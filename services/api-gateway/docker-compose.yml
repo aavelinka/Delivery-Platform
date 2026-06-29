@@ -1,0 +1,23 @@
+services:
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    environment:
+      GATEWAY_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      GATEWAY_AUTH_SERVICE_URL: http://host.docker.internal:8003
+      GATEWAY_ORDER_SERVICE_URL: http://host.docker.internal:8000
+      GATEWAY_COURIER_SERVICE_URL: http://host.docker.internal:8001
+      GATEWAY_NOTIFICATION_SERVICE_URL: http://host.docker.internal:8002
+      GATEWAY_USER_SERVICE_URL: http://host.docker.internal:8004
+      GATEWAY_TRACKING_SERVICE_URL: http://host.docker.internal:8005
+      GATEWAY_REQUEST_TIMEOUT_SECONDS: 30
+      GATEWAY_RETRY_ATTEMPTS: 2
+      GATEWAY_RETRY_BACKOFF_SECONDS: 0.2
+      GATEWAY_RATE_LIMIT_REQUESTS: 120
+      GATEWAY_RATE_LIMIT_WINDOW_SECONDS: 60
+      GATEWAY_SERVICE_NAME: api-gateway
+      GATEWAY_ENVIRONMENT: local
+    ports:
+      - "8080:8000"

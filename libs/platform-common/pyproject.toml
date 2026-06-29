@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "platform-common"
+version = "0.1.0"
+description = "Shared helpers for delivery platform services"
+requires-python = ">=3.12"
+dependencies = [
+    "email-validator>=2.2.0",
+    "fastapi>=0.115.0",
+    "pydantic>=2.8.0",
+    "python-jose[cryptography]>=3.3.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["platform_common*"]

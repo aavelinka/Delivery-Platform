@@ -1,0 +1,298 @@
+services:
+  orders-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orders"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - orders_postgres_data:/var/lib/postgresql/data
+
+  couriers-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: couriers
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d couriers"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - couriers_postgres_data:/var/lib/postgresql/data
+
+  notifications-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: notifications
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - notifications_postgres_data:/var/lib/postgresql/data
+
+  auth-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+
+  users-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: users
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - users_postgres_data:/var/lib/postgresql/data
+
+  tracking-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: tracking
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tracking"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - tracking_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  zookeeper:
+    image: bitnami/zookeeper:3.9
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: bitnami/kafka:3.7
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092
+      KAFKA_CFG_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CFG_BROKER_ID: 1
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    ports:
+      - "29092:29092"
+
+  order-service:
+    build:
+      context: .
+      dockerfile: ./services/order-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      orders-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      ORDER_DATABASE_URL: postgresql+psycopg://postgres:postgres@orders-postgres:5432/orders
+      ORDER_KAFKA_ENABLED: "true"
+      ORDER_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ORDER_KAFKA_CLIENT_ID: order-service
+      ORDER_KAFKA_GROUP_ID: order-service
+      ORDER_KAFKA_ORDERS_TOPIC: orders.events
+      ORDER_KAFKA_COURIERS_TOPIC: couriers.events
+      ORDER_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      ORDER_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      ORDER_SERVICE_NAME: order-service
+      ORDER_ENVIRONMENT: local
+    expose:
+      - "8000"
+
+  courier-service:
+    build:
+      context: .
+      dockerfile: ./services/courier-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      couriers-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      COURIER_DATABASE_URL: postgresql+psycopg://postgres:postgres@couriers-postgres:5432/couriers
+      COURIER_KAFKA_ENABLED: "true"
+      COURIER_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      COURIER_KAFKA_CLIENT_ID: courier-service
+      COURIER_KAFKA_GROUP_ID: courier-service
+      COURIER_KAFKA_COURIERS_TOPIC: couriers.events
+      COURIER_KAFKA_ORDERS_TOPIC: orders.events
+      COURIER_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      COURIER_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      COURIER_SERVICE_NAME: courier-service
+      COURIER_ENVIRONMENT: local
+    expose:
+      - "8000"
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./services/notification-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      notifications-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      NOTIFICATION_DATABASE_URL: >-
+        postgresql+psycopg://postgres:postgres@notifications-postgres:5432/notifications
+      NOTIFICATION_KAFKA_ENABLED: "true"
+      NOTIFICATION_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      NOTIFICATION_KAFKA_CLIENT_ID: notification-service
+      NOTIFICATION_KAFKA_GROUP_ID: notification-service
+      NOTIFICATION_KAFKA_TOPICS: '["orders.events","couriers.events"]'
+      NOTIFICATION_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      NOTIFICATION_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      NOTIFICATION_SERVICE_NAME: notification-service
+      NOTIFICATION_ENVIRONMENT: local
+    expose:
+      - "8000"
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./services/auth-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    environment:
+      AUTH_DATABASE_URL: postgresql+psycopg://postgres:postgres@auth-postgres:5432/auth
+      AUTH_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      AUTH_SERVICE_NAME: auth-service
+      AUTH_ENVIRONMENT: local
+      AUTH_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      AUTH_REFRESH_TOKEN_EXPIRE_DAYS: 30
+    expose:
+      - "8000"
+
+  user-service:
+    build:
+      context: .
+      dockerfile: ./services/user-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      users-postgres:
+        condition: service_healthy
+    environment:
+      USER_DATABASE_URL: postgresql+psycopg://postgres:postgres@users-postgres:5432/users
+      USER_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      USER_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      USER_SERVICE_NAME: user-service
+      USER_ENVIRONMENT: local
+    expose:
+      - "8000"
+
+  tracking-service:
+    build:
+      context: .
+      dockerfile: ./services/tracking-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      tracking-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      TRACKING_DATABASE_URL: postgresql+psycopg://postgres:postgres@tracking-postgres:5432/tracking
+      TRACKING_KAFKA_ENABLED: "true"
+      TRACKING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TRACKING_KAFKA_CLIENT_ID: tracking-service
+      TRACKING_KAFKA_GROUP_ID: tracking-service
+      TRACKING_KAFKA_TOPIC: tracking.events
+      TRACKING_KAFKA_ORDERS_TOPIC: orders.events
+      TRACKING_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      TRACKING_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      TRACKING_SERVICE_NAME: tracking-service
+      TRACKING_ENVIRONMENT: local
+    expose:
+      - "8000"
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    depends_on:
+      - auth-service
+      - order-service
+      - courier-service
+      - notification-service
+      - user-service
+      - tracking-service
+    environment:
+      GATEWAY_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      GATEWAY_AUTH_SERVICE_URL: http://auth-service:8000
+      GATEWAY_ORDER_SERVICE_URL: http://order-service:8000
+      GATEWAY_COURIER_SERVICE_URL: http://courier-service:8000
+      GATEWAY_NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      GATEWAY_USER_SERVICE_URL: http://user-service:8000
+      GATEWAY_TRACKING_SERVICE_URL: http://tracking-service:8000
+      GATEWAY_REQUEST_TIMEOUT_SECONDS: 30
+      GATEWAY_RETRY_ATTEMPTS: 2
+      GATEWAY_RETRY_BACKOFF_SECONDS: 0.2
+      GATEWAY_RATE_LIMIT_REQUESTS: 120
+      GATEWAY_RATE_LIMIT_WINDOW_SECONDS: 60
+      GATEWAY_SERVICE_NAME: api-gateway
+      GATEWAY_ENVIRONMENT: local
+    ports:
+      - "8080:8000"
+
+volumes:
+  orders_postgres_data:
+  couriers_postgres_data:
+  notifications_postgres_data:
+  auth_postgres_data:
+  users_postgres_data:
+  tracking_postgres_data:
