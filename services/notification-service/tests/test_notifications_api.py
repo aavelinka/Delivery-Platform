@@ -70,6 +70,34 @@ def test_create_notification_from_order_event(db_session):
     assert notification.source_event_type == "order_created"
 
 
+def test_create_notification_from_courier_event_uses_courier_user_id(db_session):
+    courier_user_id = str(uuid.uuid4())
+    order_id = str(uuid.uuid4())
+    service = NotificationService(db_session)
+
+    notification = service.create_from_event(
+        {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "courier_assigned",
+            "aggregate_type": "assignment",
+            "aggregate_id": str(uuid.uuid4()),
+            "payload": {
+                "order_id": order_id,
+            },
+            "metadata": {
+                "order_id": order_id,
+                "courier_user_id": courier_user_id,
+                "status": "assigned",
+            },
+        }
+    )
+
+    assert notification is not None
+    assert str(notification.user_id) == courier_user_id
+    assert notification.source_event_type == "courier_assigned"
+    assert notification.title == "Courier assigned"
+
+
 def test_event_processing_is_idempotent(db_session):
     event_id = str(uuid.uuid4())
     user_id = str(uuid.uuid4())
@@ -118,6 +146,28 @@ def test_tracking_event_does_not_create_notification(db_session):
             "metadata": {
                 "order_id": order_id,
                 "user_id": user_id,
+            },
+        }
+    )
+
+    assert notification is None
+
+
+def test_courier_event_without_recipient_does_not_create_notification(db_session):
+    service = NotificationService(db_session)
+
+    notification = service.create_from_event(
+        {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "assignment_status_changed",
+            "aggregate_type": "assignment",
+            "aggregate_id": str(uuid.uuid4()),
+            "payload": {
+                "order_id": str(uuid.uuid4()),
+            },
+            "metadata": {
+                "order_id": str(uuid.uuid4()),
+                "status": "accepted",
             },
         }
     )

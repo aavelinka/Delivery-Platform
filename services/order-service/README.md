@@ -5,8 +5,8 @@
 It owns order data, order status transitions, order event history, and publishes domain
 events to Kafka.
 
-It also consumes `couriers.events` and applies `courier_assigned` events to update
-orders after `courier-service` assigns a courier.
+It also consumes `couriers.events` and applies both `courier_assigned` and
+`assignment_status_changed` events to keep orders in sync with courier flow.
 
 ## Responsibilities
 
@@ -24,6 +24,7 @@ orders after `courier-service` assigns a courier.
   - `delivery_completed`
 - Consume Kafka events:
   - `courier_assigned`
+  - `assignment_status_changed`
 
 ## Local Run
 
@@ -50,7 +51,7 @@ alembic upgrade head
 ```env
 ORDER_SERVICE_NAME=order-service
 ORDER_ENVIRONMENT=local
-ORDER_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/orders
+ORDER_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5438/orders
 ORDER_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ORDER_KAFKA_ENABLED=true
 ```

@@ -2,6 +2,9 @@
 
 Stores courier locations and exposes current and historical tracking data.
 
+The service consumes order aggregate events from `orders.events` to initialize
+tracked orders with their owner and assigned courier.
+
 ## Endpoints
 
 - `POST /tracking/locations`
