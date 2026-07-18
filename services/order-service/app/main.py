@@ -16,6 +16,8 @@ from app.kafka.producer import KafkaPublisher, NoopKafkaPublisher
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    publisher: KafkaPublisher | NoopKafkaPublisher
+    consumer: CourierEventsConsumer | NoopCourierEventsConsumer
     if settings.kafka_enabled:
         publisher = KafkaPublisher(settings)
         consumer = CourierEventsConsumer(settings)

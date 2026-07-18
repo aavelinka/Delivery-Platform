@@ -66,16 +66,15 @@ class TrackingService:
             self.db.add(tracked_order)
         else:
             tracked_order.user_id = user_id
-            if courier_user_id is not None:
-                tracked_order.courier_user_id = courier_user_id
+            tracked_order.courier_user_id = courier_user_id
             tracked_order.updated_at = datetime.now(UTC)
         self.db.commit()
         self.db.refresh(tracked_order)
         return tracked_order
 
     def apply_order_event(self, event: dict[str, object]) -> TrackedOrder | None:
-        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
-        metadata = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
+        payload = self._event_object(event.get("payload"))
+        metadata = self._event_object(event.get("metadata"))
         order_id = self._parse_uuid(payload.get("order_id") or metadata.get("order_id"))
         user_id = self._parse_uuid(payload.get("user_id") or metadata.get("user_id"))
         courier_user_id = self._parse_uuid(
@@ -150,3 +149,9 @@ class TrackingService:
             return uuid.UUID(str(value))
         except ValueError:
             return None
+
+    @staticmethod
+    def _event_object(value: object) -> dict[str, object]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}

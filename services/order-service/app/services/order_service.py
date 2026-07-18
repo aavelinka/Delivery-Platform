@@ -205,16 +205,8 @@ class OrderService:
         self,
         courier_event: dict[str, Any],
     ) -> tuple[Order, OrderEvent] | None:
-        payload = (
-            courier_event.get("payload")
-            if isinstance(courier_event.get("payload"), dict)
-            else {}
-        )
-        metadata = (
-            courier_event.get("metadata")
-            if isinstance(courier_event.get("metadata"), dict)
-            else {}
-        )
+        payload = self._event_object(courier_event.get("payload"))
+        metadata = self._event_object(courier_event.get("metadata"))
 
         order_id = self._parse_uuid(payload.get("order_id") or metadata.get("order_id"))
         courier_user_id = self._parse_uuid(
@@ -387,9 +379,16 @@ class OrderService:
     def _event_payload_and_metadata(
         event: dict[str, Any],
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
-        metadata = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
-        return payload, metadata
+        return (
+            OrderService._event_object(event.get("payload")),
+            OrderService._event_object(event.get("metadata")),
+        )
+
+    @staticmethod
+    def _event_object(value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}
 
     @staticmethod
     def _parse_uuid(value: Any) -> uuid.UUID | None:

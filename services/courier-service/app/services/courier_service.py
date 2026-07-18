@@ -202,7 +202,7 @@ class CourierService:
         return assignment
 
     def auto_assign_order(self, order_event: dict[str, Any]) -> CourierAssignment | None:
-        payload = order_event.get("payload") if isinstance(order_event.get("payload"), dict) else {}
+        payload = self._event_object(order_event.get("payload"))
         order_id_value = payload.get("order_id") or order_event.get("aggregate_id")
         order_id = self._parse_uuid(order_id_value)
         if order_id is None:
@@ -384,3 +384,9 @@ class CourierService:
             return uuid.UUID(str(value))
         except ValueError:
             return None
+
+    @staticmethod
+    def _event_object(value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}

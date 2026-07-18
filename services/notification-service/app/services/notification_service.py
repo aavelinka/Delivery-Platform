@@ -102,12 +102,12 @@ class NotificationService:
 
     def _notification_from_event(self, event: dict[str, Any]) -> dict[str, Any] | None:
         event_type = str(event.get("event_type") or "")
-        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
-        metadata = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
+        payload = self._event_object(event.get("payload"))
+        metadata = self._event_object(event.get("metadata"))
 
-        user_id = _parse_uuid(payload.get("user_id") or metadata.get("user_id"))
+        user_id = self._recipient_user_id(payload, metadata)
         title, message = self._message_for_event(event_type, payload, metadata)
-        if title is None or message is None:
+        if user_id is None or title is None or message is None:
             return None
 
         return {
@@ -174,3 +174,21 @@ class NotificationService:
             ),
         }
         return messages.get(event_type, (None, None))
+
+    @staticmethod
+    def _event_object(value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            return {}
+        return {str(key): item for key, item in value.items()}
+
+    @staticmethod
+    def _recipient_user_id(
+        payload: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> uuid.UUID | None:
+        return _parse_uuid(
+            payload.get("user_id")
+            or metadata.get("user_id")
+            or payload.get("courier_user_id")
+            or metadata.get("courier_user_id")
+        )
