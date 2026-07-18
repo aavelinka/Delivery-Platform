@@ -18,6 +18,12 @@ from app.domain.enums import UserRole
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserRead
 
 
+def _normalize_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 class AuthService:
     def __init__(self, db: Session, settings: Settings) -> None:
         self.db = db
@@ -44,6 +50,43 @@ class AuthService:
         self.db.refresh(user)
         return self._issue_tokens(user)
 
+    def ensure_bootstrap_admin(self) -> User | None:
+        email = self.settings.bootstrap_admin_email
+        password = self.settings.bootstrap_admin_password
+        if email is None or password is None:
+            return None
+
+        normalized_email = str(email).lower()
+        user = self.db.scalar(select(User).where(User.email == normalized_email))
+        should_commit = False
+
+        if user is None:
+            user = User(
+                email=normalized_email,
+                hashed_password=hash_password(password),
+                full_name=self.settings.bootstrap_admin_full_name,
+                role=UserRole.ADMIN,
+                is_active=True,
+            )
+            self.db.add(user)
+            should_commit = True
+        else:
+            if user.role != UserRole.ADMIN:
+                user.role = UserRole.ADMIN
+                should_commit = True
+            if not user.is_active:
+                user.is_active = True
+                should_commit = True
+            if not user.full_name and self.settings.bootstrap_admin_full_name:
+                user.full_name = self.settings.bootstrap_admin_full_name
+                should_commit = True
+
+        if should_commit:
+            self.db.commit()
+            self.db.refresh(user)
+
+        return user
+
     def login(self, data: LoginRequest) -> TokenResponse:
         user = self.db.scalar(select(User).where(User.email == data.email.lower()))
         if user is None or not verify_password(data.password, user.hashed_password):
@@ -68,7 +111,7 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid refresh token",
             )
-        if token_record.expires_at <= datetime.now(UTC):
+        if _normalize_utc(token_record.expires_at) <= datetime.now(UTC):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Refresh token expired",
@@ -93,6 +136,16 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+        return user
+
+    def update_user_role(self, user_id: uuid.UUID, role: UserRole) -> User:
+        user = self.db.get(User, user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        if user.role != role:
+            user.role = role
+            self.db.commit()
+            self.db.refresh(user)
         return user
 
     def _issue_tokens(self, user: User) -> TokenResponse:

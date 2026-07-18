@@ -25,6 +25,10 @@ class LogoutRequest(BaseModel):
     refresh_token: str = Field(min_length=32)
 
 
+class UserRoleUpdateRequest(BaseModel):
+    role: UserRole
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
