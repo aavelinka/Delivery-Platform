@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     service_name: str = "order-service"
     environment: str = "local"
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/orders"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5438/orders"
 
     kafka_enabled: bool = True
     kafka_bootstrap_servers: str = "localhost:9092"

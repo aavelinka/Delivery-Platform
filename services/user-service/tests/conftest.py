@@ -1,4 +1,4 @@
-import os
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -7,12 +7,26 @@ import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
 
-TEST_DB = Path(__file__).resolve().parent / "user_service_test.db"
 TEST_SECRET = "test-secret"
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
-os.environ["USER_DATABASE_URL"] = f"sqlite+pysqlite:///{TEST_DB}"
-os.environ["USER_JWT_SECRET_KEY"] = TEST_SECRET
-os.environ["USER_CORS_ORIGINS"] = '["*"]'
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from test_support.postgres import (  # noqa: E402
+    configure_postgres_test_environment,
+    reset_database,
+    teardown_database,
+)
+
+configure_postgres_test_environment(
+    database_env_var="USER_DATABASE_URL",
+    default_database_url="postgresql+psycopg://postgres:postgres@localhost:5436/users_test",
+    extra_env={
+        "USER_JWT_SECRET_KEY": TEST_SECRET,
+        "USER_CORS_ORIGINS": '["*"]',
+    },
+)
 
 from app.db.base import Base  # noqa: E402
 from app.db.session import engine  # noqa: E402
@@ -21,12 +35,9 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def _setup_db() -> None:
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    reset_database(engine, Base.metadata)
     yield
-    Base.metadata.drop_all(bind=engine)
-    if TEST_DB.exists():
-        TEST_DB.unlink()
+    teardown_database(engine, Base.metadata)
 
 
 @pytest.fixture()
