@@ -47,3 +47,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserRead
+
+
+class AuthAdminSummary(BaseModel):
+    total_users: int
+    active_users: int
+    inactive_users: int
+    users_by_role: dict[str, int]

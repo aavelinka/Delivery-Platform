@@ -174,3 +174,36 @@ def test_courier_event_without_recipient_does_not_create_notification(db_session
     )
 
     assert notification is None
+
+
+def test_admin_summary_returns_notification_counts(client, auth_headers):
+    user_id = str(uuid.uuid4())
+    admin_headers = auth_headers(role="admin")
+    user_headers = auth_headers(user_id, "customer")
+
+    create_response = client.post(
+        "/notifications",
+        json={
+            "user_id": user_id,
+            "channel": "in_app",
+            "title": "Order created",
+            "message": "Order was created.",
+            "payload": {"order_id": str(uuid.uuid4())},
+        },
+        headers=admin_headers,
+    )
+    assert create_response.status_code == 201
+    notification_id = create_response.json()["id"]
+
+    read_response = client.patch(f"/notifications/{notification_id}/read", headers=user_headers)
+    assert read_response.status_code == 200
+
+    summary_response = client.get("/notifications/admin/summary", headers=admin_headers)
+
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["total_notifications"] == 1
+    assert payload["read_notifications"] == 1
+    assert payload["unread_notifications"] == 0
+    assert payload["notifications_by_status"]["read"] == 1
+    assert payload["notifications_by_channel"]["in_app"] == 1

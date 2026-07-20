@@ -28,6 +28,10 @@ docker compose up --build
 
 Only `api-gateway` is exposed publicly on port `8080`. Internal services run inside
 the Compose network and trust headers signed by `GATEWAY_INTERNAL_SECRET`.
+`admin-service` also runs internally in the full stack and is expected to be
+reached through the gateway in normal external flows. `payment-service` should
+also be reached through `api-gateway` in the full stack rather than by calling
+its container directly.
 
 ### Single service
 
@@ -55,6 +59,7 @@ Default host ports:
 - `5436` user-service
 - `5437` tracking-service
 - `5438` order-service
+- `5439` payment-service
 
 For the full external flow through `api-gateway` and Kafka:
 
@@ -74,6 +79,7 @@ Core happy-path flow:
 3. `order-service` consumes courier events and updates order state.
 4. `tracking-service` consumes order events and binds order ownership and courier access.
 5. `notification-service` consumes order and courier events and creates in-app notifications.
+6. `payment-service` publishes payment lifecycle events through its own outbox.
 
 When changing event payloads, update:
 

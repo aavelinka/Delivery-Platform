@@ -149,6 +149,40 @@ class CourierService:
         ).all()
         return list(items), total
 
+    def get_admin_summary(self) -> dict[str, int | dict[str, int]]:
+        total_couriers = self.db.scalar(select(func.count()).select_from(Courier)) or 0
+        active_couriers = (
+            self.db.scalar(
+                select(func.count()).select_from(Courier).where(Courier.is_active.is_(True))
+            )
+            or 0
+        )
+        availability_rows = self.db.execute(
+            select(Courier.availability, func.count()).group_by(Courier.availability)
+        ).all()
+        assignment_rows = self.db.execute(
+            select(CourierAssignment.status, func.count()).group_by(CourierAssignment.status)
+        ).all()
+        couriers_by_availability = {
+            str(
+                availability.value
+                if isinstance(availability, CourierAvailability)
+                else availability
+            ): count
+            for availability, count in availability_rows
+        }
+        assignments_by_status = {
+            str(status.value if isinstance(status, AssignmentStatus) else status): count
+            for status, count in assignment_rows
+        }
+        return {
+            "total_couriers": total_couriers,
+            "active_couriers": active_couriers,
+            "inactive_couriers": total_couriers - active_couriers,
+            "couriers_by_availability": couriers_by_availability,
+            "assignments_by_status": assignments_by_status,
+        }
+
     def assign_courier(self, data: AssignmentCreate) -> CourierAssignment:
         courier = self.get_courier(data.courier_id)
         if not courier.is_active:

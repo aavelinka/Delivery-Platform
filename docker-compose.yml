@@ -95,6 +95,22 @@ services:
     volumes:
       - tracking_postgres_data:/var/lib/postgresql/data
 
+  payments-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "${PAYMENTS_POSTGRES_HOST_PORT:-5439}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payments"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - payments_postgres_data:/var/lib/postgresql/data
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.9.0
     environment:
@@ -269,6 +285,56 @@ services:
     expose:
       - "8000"
 
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./services/payment-service/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      payments-postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      PAYMENT_DATABASE_URL: postgresql+psycopg://postgres:postgres@payments-postgres:5432/payments
+      PAYMENT_KAFKA_ENABLED: "true"
+      PAYMENT_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PAYMENT_KAFKA_CLIENT_ID: payment-service
+      PAYMENT_KAFKA_PAYMENTS_TOPIC: payments.events
+      PAYMENT_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      PAYMENT_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      PAYMENT_SERVICE_NAME: payment-service
+      PAYMENT_ENVIRONMENT: local
+    expose:
+      - "8000"
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: ./services/admin-service/Dockerfile
+    depends_on:
+      - auth-service
+      - user-service
+      - order-service
+      - courier-service
+      - tracking-service
+      - notification-service
+      - payment-service
+    environment:
+      ADMIN_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      ADMIN_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      ADMIN_AUTH_SERVICE_URL: http://auth-service:8000
+      ADMIN_USER_SERVICE_URL: http://user-service:8000
+      ADMIN_ORDER_SERVICE_URL: http://order-service:8000
+      ADMIN_COURIER_SERVICE_URL: http://courier-service:8000
+      ADMIN_TRACKING_SERVICE_URL: http://tracking-service:8000
+      ADMIN_NOTIFICATION_SERVICE_URL: http://notification-service:8000
+      ADMIN_PAYMENT_SERVICE_URL: http://payment-service:8000
+      ADMIN_SERVICE_NAME: admin-service
+      ADMIN_ENVIRONMENT: local
+    expose:
+      - "8000"
+
   api-gateway:
     build:
       context: .
@@ -280,6 +346,8 @@ services:
       - notification-service
       - user-service
       - tracking-service
+      - admin-service
+      - payment-service
     environment:
       GATEWAY_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
@@ -289,6 +357,8 @@ services:
       GATEWAY_NOTIFICATION_SERVICE_URL: http://notification-service:8000
       GATEWAY_USER_SERVICE_URL: http://user-service:8000
       GATEWAY_TRACKING_SERVICE_URL: http://tracking-service:8000
+      GATEWAY_ADMIN_SERVICE_URL: http://admin-service:8000
+      GATEWAY_PAYMENT_SERVICE_URL: http://payment-service:8000
       GATEWAY_REQUEST_TIMEOUT_SECONDS: 30
       GATEWAY_RETRY_ATTEMPTS: 2
       GATEWAY_RETRY_BACKOFF_SECONDS: 0.2
@@ -306,3 +376,4 @@ volumes:
   auth_postgres_data:
   users_postgres_data:
   tracking_postgres_data:
+  payments_postgres_data:

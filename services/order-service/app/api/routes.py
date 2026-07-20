@@ -14,6 +14,7 @@ from app.core.auth import (
 from app.db.session import get_db
 from app.domain.enums import OrderStatus
 from app.schemas.orders import (
+    OrderAdminSummary,
     OrderCancel,
     OrderCreate,
     OrderEventRead,
@@ -28,6 +29,14 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 def get_order_service(db: Session = Depends(get_db)) -> OrderService:
     return OrderService(db)
+
+
+@router.get("/admin/summary", response_model=OrderAdminSummary)
+def admin_summary(
+    service: OrderService = Depends(get_order_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> OrderAdminSummary:
+    return OrderAdminSummary.model_validate(service.get_admin_summary())
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)

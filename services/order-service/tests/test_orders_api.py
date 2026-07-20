@@ -283,3 +283,46 @@ def test_apply_assignment_status_changed_event(client, db_session, auth_headers)
     )
     assert delivered is not None
     assert delivered[0].status == "delivered"
+
+
+def test_admin_summary_returns_order_counts(client, auth_headers):
+    admin_headers = auth_headers(role="admin")
+    first_order = client.post(
+        "/orders",
+        json={
+            "user_id": str(uuid.uuid4()),
+            "pickup_address": "Warehouse A",
+            "delivery_address": "Main street 12",
+            "total_price": "149.90",
+        },
+        headers=admin_headers,
+    )
+    assert first_order.status_code == 201
+
+    second_order = client.post(
+        "/orders",
+        json={
+            "user_id": str(uuid.uuid4()),
+            "pickup_address": "Warehouse B",
+            "delivery_address": "Main street 13",
+            "total_price": "99.90",
+        },
+        headers=admin_headers,
+    )
+    assert second_order.status_code == 201
+
+    cancel_response = client.post(
+        f"/orders/{second_order.json()['id']}/cancel",
+        json={"reason": "Customer request"},
+        headers=admin_headers,
+    )
+    assert cancel_response.status_code == 200
+
+    summary_response = client.get("/orders/admin/summary", headers=admin_headers)
+
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["total_orders"] == 2
+    assert payload["cancelled_orders"] == 1
+    assert payload["orders_by_status"]["created"] == 1
+    assert payload["orders_by_status"]["cancelled"] == 1

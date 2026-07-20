@@ -41,6 +41,7 @@ alembic upgrade head
 ## API
 
 - `POST /couriers`
+- `GET /couriers/admin/summary`
 - `GET /couriers/{courier_id}`
 - `PATCH /couriers/{courier_id}`
 - `PATCH /couriers/{courier_id}/availability`

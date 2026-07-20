@@ -1,0 +1,20 @@
+services:
+  admin-service:
+    build:
+      context: ../..
+      dockerfile: services/admin-service/Dockerfile
+    environment:
+      ADMIN_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
+      ADMIN_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
+      ADMIN_AUTH_SERVICE_URL: http://host.docker.internal:${AUTH_SERVICE_HOST_PORT:-8003}
+      ADMIN_USER_SERVICE_URL: http://host.docker.internal:${USER_SERVICE_HOST_PORT:-8004}
+      ADMIN_ORDER_SERVICE_URL: http://host.docker.internal:${ORDER_SERVICE_HOST_PORT:-8000}
+      ADMIN_COURIER_SERVICE_URL: http://host.docker.internal:${COURIER_SERVICE_HOST_PORT:-8001}
+      ADMIN_TRACKING_SERVICE_URL: http://host.docker.internal:${TRACKING_SERVICE_HOST_PORT:-8005}
+      ADMIN_NOTIFICATION_SERVICE_URL: http://host.docker.internal:${NOTIFICATION_SERVICE_HOST_PORT:-8002}
+      ADMIN_PAYMENT_SERVICE_URL: http://host.docker.internal:${PAYMENT_SERVICE_HOST_PORT:-8007}
+      ADMIN_REQUEST_TIMEOUT_SECONDS: 10
+      ADMIN_SERVICE_NAME: admin-service
+      ADMIN_ENVIRONMENT: local
+    ports:
+      - "${ADMIN_SERVICE_HOST_PORT:-8006}:8000"

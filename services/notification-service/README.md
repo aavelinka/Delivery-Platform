@@ -33,6 +33,7 @@ alembic upgrade head
 ## API
 
 - `POST /notifications`
+- `GET /notifications/admin/summary`
 - `GET /notifications/{notification_id}`
 - `GET /notifications/users/{user_id}`
 - `PATCH /notifications/{notification_id}/read`

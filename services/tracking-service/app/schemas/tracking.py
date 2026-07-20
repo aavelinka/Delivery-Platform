@@ -27,3 +27,10 @@ class LocationRead(BaseModel):
     accuracy_meters: float | None
     recorded_at: datetime
     payload: dict[str, Any]
+
+
+class TrackingAdminSummary(BaseModel):
+    tracked_orders: int
+    tracked_orders_with_courier: int
+    location_updates_total: int
+    location_updates_last_24h: int

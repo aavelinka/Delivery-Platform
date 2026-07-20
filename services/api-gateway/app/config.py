@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     notification_service_url: str = "http://localhost:8002"
     user_service_url: str = "http://localhost:8004"
     tracking_service_url: str = "http://localhost:8005"
+    admin_service_url: str = "http://localhost:8006"
+    payment_service_url: str = "http://localhost:8007"
 
     request_timeout_seconds: float = 30.0
     retry_attempts: int = 2

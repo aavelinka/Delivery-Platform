@@ -69,6 +69,8 @@ def test_target_routing():
     settings = get_settings()
 
     assert _target_base_url(settings, "orders") == settings.order_service_url
+    assert _target_base_url(settings, "admin/overview") == settings.admin_service_url
+    assert _target_base_url(settings, "payments") == settings.payment_service_url
     assert _target_base_url(settings, "tracking/orders/1") == settings.tracking_service_url
 
 

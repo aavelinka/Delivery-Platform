@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import CurrentUser, UserRole, get_current_user, require_roles
 from app.db.models import CourierLocation
 from app.db.session import get_db
-from app.schemas.tracking import LocationCreate, LocationRead
+from app.schemas.tracking import LocationCreate, LocationRead, TrackingAdminSummary
 from app.services.tracking_service import TrackingService
 
 router = APIRouter(prefix="/tracking", tags=["tracking"])
@@ -14,6 +14,14 @@ router = APIRouter(prefix="/tracking", tags=["tracking"])
 
 def get_tracking_service(db: Session = Depends(get_db)) -> TrackingService:
     return TrackingService(db)
+
+
+@router.get("/admin/summary", response_model=TrackingAdminSummary)
+def admin_summary(
+    service: TrackingService = Depends(get_tracking_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> TrackingAdminSummary:
+    return TrackingAdminSummary.model_validate(service.get_admin_summary())
 
 
 def ensure_location_access(current_user: CurrentUser, location: CourierLocation) -> None:

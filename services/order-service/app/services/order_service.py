@@ -120,6 +120,39 @@ class OrderService:
         ).all()
         return list(items), total
 
+    def get_admin_summary(self) -> dict[str, int | dict[str, int]]:
+        total_orders = self.db.scalar(select(func.count()).select_from(Order)) or 0
+        orders_with_courier = (
+            self.db.scalar(select(func.count()).select_from(Order).where(Order.courier_id.is_not(None)))
+            or 0
+        )
+        completed_orders = (
+            self.db.scalar(
+                select(func.count()).select_from(Order).where(Order.status == OrderStatus.DELIVERED)
+            )
+            or 0
+        )
+        cancelled_orders = (
+            self.db.scalar(
+                select(func.count()).select_from(Order).where(Order.status == OrderStatus.CANCELLED)
+            )
+            or 0
+        )
+        status_rows = self.db.execute(
+            select(Order.status, func.count()).group_by(Order.status)
+        ).all()
+        orders_by_status = {
+            str(status.value if isinstance(status, OrderStatus) else status): count
+            for status, count in status_rows
+        }
+        return {
+            "total_orders": total_orders,
+            "orders_with_courier": orders_with_courier,
+            "completed_orders": completed_orders,
+            "cancelled_orders": cancelled_orders,
+            "orders_by_status": orders_by_status,
+        }
+
     def change_status(
         self,
         order_id: uuid.UUID,

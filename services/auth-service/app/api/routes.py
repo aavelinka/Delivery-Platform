@@ -7,6 +7,7 @@ from app.core.auth import CurrentUser, UserRole, get_current_user, require_roles
 from app.core.config import Settings, get_settings
 from app.db.session import get_db
 from app.schemas.auth import (
+    AuthAdminSummary,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
@@ -57,6 +58,14 @@ def logout(
     service: AuthService = Depends(get_auth_service),
 ) -> None:
     service.logout(payload.refresh_token)
+
+
+@router.get("/admin/summary", response_model=AuthAdminSummary)
+def admin_summary(
+    service: AuthService = Depends(get_auth_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> AuthAdminSummary:
+    return AuthAdminSummary.model_validate(service.get_admin_summary())
 
 
 @router.get("/me", response_model=UserRead)

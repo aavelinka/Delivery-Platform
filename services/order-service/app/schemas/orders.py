@@ -61,3 +61,11 @@ class OrderListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class OrderAdminSummary(BaseModel):
+    total_orders: int
+    orders_with_courier: int
+    completed_orders: int
+    cancelled_orders: int
+    orders_by_status: dict[str, int]

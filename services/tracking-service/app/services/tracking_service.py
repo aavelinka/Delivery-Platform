@@ -1,9 +1,9 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from platform_common.outbox import add_outbox_event
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -118,6 +118,34 @@ class TrackingService:
         if location is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
         return location
+
+    def get_admin_summary(self) -> dict[str, int]:
+        tracked_orders = self.db.scalar(select(func.count()).select_from(TrackedOrder)) or 0
+        tracked_orders_with_courier = (
+            self.db.scalar(
+                select(func.count())
+                .select_from(TrackedOrder)
+                .where(TrackedOrder.courier_user_id.is_not(None))
+            )
+            or 0
+        )
+        location_updates_total = (
+            self.db.scalar(select(func.count()).select_from(CourierLocation)) or 0
+        )
+        location_updates_last_24h = (
+            self.db.scalar(
+                select(func.count())
+                .select_from(CourierLocation)
+                .where(CourierLocation.recorded_at >= datetime.now(UTC) - timedelta(hours=24))
+            )
+            or 0
+        )
+        return {
+            "tracked_orders": tracked_orders,
+            "tracked_orders_with_courier": tracked_orders_with_courier,
+            "location_updates_total": location_updates_total,
+            "location_updates_last_24h": location_updates_last_24h,
+        }
 
     def get_tracked_order(self, order_id: uuid.UUID | None) -> TrackedOrder | None:
         if order_id is None:

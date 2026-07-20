@@ -189,3 +189,36 @@ def test_order_tracking_courier_cannot_be_changed(client, auth_headers, db_sessi
         headers=auth_headers(other_courier_user_id, "courier"),
     )
     assert conflict_response.status_code == 409
+
+
+def test_admin_summary_returns_tracking_counts(client, auth_headers, db_session):
+    courier_user_id = str(uuid.uuid4())
+    user_id = str(uuid.uuid4())
+    order_id = str(uuid.uuid4())
+
+    TrackingService(db_session).upsert_tracked_order(
+        order_id=uuid.UUID(order_id),
+        user_id=uuid.UUID(user_id),
+        courier_user_id=uuid.UUID(courier_user_id),
+    )
+
+    create_response = client.post(
+        "/tracking/locations",
+        json={
+            "courier_user_id": courier_user_id,
+            "order_id": order_id,
+            "latitude": 53.9,
+            "longitude": 27.5667,
+        },
+        headers=auth_headers(courier_user_id, "courier"),
+    )
+    assert create_response.status_code == 201
+
+    summary_response = client.get("/tracking/admin/summary", headers=auth_headers(role="admin"))
+
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["tracked_orders"] == 1
+    assert payload["tracked_orders_with_courier"] == 1
+    assert payload["location_updates_total"] == 1
+    assert payload["location_updates_last_24h"] == 1

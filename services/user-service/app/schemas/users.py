@@ -55,3 +55,10 @@ class AddressRead(BaseModel):
     is_default: bool
     created_at: datetime
     updated_at: datetime
+
+
+class UserAdminSummary(BaseModel):
+    total_profiles: int
+    total_addresses: int
+    profiles_with_addresses: int
+    default_addresses: int

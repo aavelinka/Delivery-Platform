@@ -8,6 +8,7 @@ tracked orders with their owner and assigned courier.
 ## Endpoints
 
 - `POST /tracking/locations`
+- `GET /tracking/admin/summary`
 - `GET /tracking/orders/{order_id}`
 - `GET /tracking/orders/{order_id}/history`
 - `GET /tracking/couriers/{courier_user_id}`

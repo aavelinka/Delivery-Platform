@@ -77,6 +77,10 @@ app = create_app()
 def _target_base_url(settings: Settings, path: str) -> str:
     if path.startswith("auth"):
         return settings.auth_service_url
+    if path.startswith("admin"):
+        return settings.admin_service_url
+    if path.startswith("payments"):
+        return settings.payment_service_url
     if path.startswith("orders"):
         return settings.order_service_url
     if path.startswith("couriers"):

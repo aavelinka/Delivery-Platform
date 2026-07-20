@@ -3,12 +3,19 @@ import uuid
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import CurrentUser, ensure_self_or_admin, get_current_user
+from app.core.auth import (
+    CurrentUser,
+    UserRole,
+    ensure_self_or_admin,
+    get_current_user,
+    require_roles,
+)
 from app.db.session import get_db
 from app.schemas.users import (
     AddressCreate,
     AddressRead,
     AddressUpdate,
+    UserAdminSummary,
     UserProfileRead,
     UserProfileUpdate,
 )
@@ -29,6 +36,14 @@ def get_profile(
 ) -> UserProfileRead:
     ensure_self_or_admin(current_user, user_id)
     return UserProfileRead.model_validate(service.get_or_create_profile(user_id))
+
+
+@router.get("/admin/summary", response_model=UserAdminSummary)
+def admin_summary(
+    service: UserService = Depends(get_user_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> UserAdminSummary:
+    return UserAdminSummary.model_validate(service.get_admin_summary())
 
 
 @router.patch("/{user_id}", response_model=UserProfileRead)

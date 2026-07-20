@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import UserAddress, UserProfile
@@ -75,6 +75,28 @@ class UserService:
         address = self._get_user_address(user_id, address_id)
         self.db.delete(address)
         self.db.commit()
+
+    def get_admin_summary(self) -> dict[str, int]:
+        total_profiles = self.db.scalar(select(func.count()).select_from(UserProfile)) or 0
+        total_addresses = self.db.scalar(select(func.count()).select_from(UserAddress)) or 0
+        profiles_with_addresses = (
+            self.db.scalar(
+                select(func.count(distinct(UserAddress.user_id))).select_from(UserAddress)
+            )
+            or 0
+        )
+        default_addresses = (
+            self.db.scalar(
+                select(func.count()).select_from(UserAddress).where(UserAddress.is_default.is_(True))
+            )
+            or 0
+        )
+        return {
+            "total_profiles": total_profiles,
+            "total_addresses": total_addresses,
+            "profiles_with_addresses": profiles_with_addresses,
+            "default_addresses": default_addresses,
+        }
 
     def _get_user_address(self, user_id: uuid.UUID, address_id: uuid.UUID) -> UserAddress:
         address = self.db.scalar(

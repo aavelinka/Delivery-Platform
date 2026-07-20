@@ -11,4 +11,7 @@ Public auth endpoints:
 - `POST /auth/refresh`
 - `POST /auth/logout`
 
-All other proxied endpoints require an auth-service access token.
+Other proxied domains include `/users`, `/orders`, `/couriers`, `/tracking`,
+`/notifications`, `/payments` and `/admin`.
+
+All non-public proxied endpoints require an auth-service access token.

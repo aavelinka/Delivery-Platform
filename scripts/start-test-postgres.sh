@@ -16,7 +16,8 @@ docker compose up -d \
   notifications-postgres \
   auth-postgres \
   users-postgres \
-  tracking-postgres
+  tracking-postgres \
+  payments-postgres
 
 "$ROOT_DIR/scripts/wait-for-compose-services.sh" \
   orders-postgres \
@@ -24,4 +25,5 @@ docker compose up -d \
   notifications-postgres \
   auth-postgres \
   users-postgres \
-  tracking-postgres
+  tracking-postgres \
+  payments-postgres

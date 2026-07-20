@@ -59,6 +59,7 @@ ORDER_KAFKA_ENABLED=true
 ## API
 
 - `POST /orders`
+- `GET /orders/admin/summary`
 - `GET /orders/{order_id}`
 - `GET /orders`
 - `PATCH /orders/{order_id}/status`

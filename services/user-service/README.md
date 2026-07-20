@@ -5,6 +5,7 @@ Stores user profile data and delivery addresses.
 ## Endpoints
 
 - `GET /users/{user_id}`
+- `GET /users/admin/summary`
 - `PATCH /users/{user_id}`
 - `GET /users/{user_id}/addresses`
 - `POST /users/{user_id}/addresses`

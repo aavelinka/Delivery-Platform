@@ -86,15 +86,30 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      payments-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: payments
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d payments"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       fail-fast: false
       matrix:
         service:
           - auth-service
           - api-gateway
+          - admin-service
           - order-service
           - courier-service
           - notification-service
+          - payment-service
           - user-service
           - tracking-service
 

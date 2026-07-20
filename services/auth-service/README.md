@@ -42,3 +42,4 @@ export AUTH_BOOTSTRAP_ADMIN_PASSWORD=replace-with-a-long-random-admin-password
 - `POST /auth/logout`
 - `GET /auth/me`
 - `PATCH /auth/users/{user_id}/role`
+- `GET /auth/admin/summary`

@@ -204,3 +204,45 @@ def test_gateway_headers_authorize_protected_auth_endpoints(client):
     )
     assert role_update_response.status_code == 200
     assert role_update_response.json()["role"] == "courier"
+
+
+def test_admin_summary_returns_user_role_counts(client):
+    client.post(
+        "/auth/register",
+        json={
+            "email": "first@example.com",
+            "password": "strong-password",
+            "full_name": "First User",
+        },
+    ).json()
+    second_user = client.post(
+        "/auth/register",
+        json={
+            "email": "second@example.com",
+            "password": "strong-password",
+            "full_name": "Second User",
+        },
+    ).json()
+
+    admin_headers = {
+        "x-gateway-secret": "test-gateway-secret",
+        "x-user-id": str(uuid.uuid4()),
+        "x-user-email": "admin@example.com",
+        "x-user-role": "admin",
+    }
+    update_response = client.patch(
+        f"/auth/users/{second_user['user']['id']}/role",
+        json={"role": "courier"},
+        headers=admin_headers,
+    )
+    assert update_response.status_code == 200
+
+    summary_response = client.get("/auth/admin/summary", headers=admin_headers)
+
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["total_users"] == 2
+    assert payload["active_users"] == 2
+    assert payload["inactive_users"] == 0
+    assert payload["users_by_role"]["customer"] == 1
+    assert payload["users_by_role"]["courier"] == 1

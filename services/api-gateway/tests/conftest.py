@@ -1,12 +1,21 @@
 import os
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from jose import jwt
 
 TEST_SECRET = "test-secret"
 TEST_GATEWAY_SECRET = "test-gateway-secret"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+SHARED_LIB_ROOT = REPO_ROOT / "libs" / "platform-common"
+
+for path in (REPO_ROOT, SHARED_LIB_ROOT):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 os.environ["GATEWAY_JWT_SECRET_KEY"] = TEST_SECRET
 os.environ["GATEWAY_INTERNAL_SECRET"] = TEST_GATEWAY_SECRET

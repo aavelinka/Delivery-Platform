@@ -13,4 +13,5 @@ docker compose stop \
   notifications-postgres \
   auth-postgres \
   users-postgres \
-  tracking-postgres
+  tracking-postgres \
+  payments-postgres

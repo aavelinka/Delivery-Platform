@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -147,6 +147,27 @@ class AuthService:
             self.db.commit()
             self.db.refresh(user)
         return user
+
+    def get_admin_summary(self) -> dict[str, int | dict[str, int]]:
+        total_users = self.db.scalar(select(func.count()).select_from(User)) or 0
+        active_users = (
+            self.db.scalar(
+                select(func.count()).select_from(User).where(User.is_active.is_(True))
+            )
+            or 0
+        )
+        role_rows = self.db.execute(select(User.role, func.count()).group_by(User.role)).all()
+        users_by_role = {
+            str(role.value if isinstance(role, UserRole) else role): count
+            for role, count in role_rows
+        }
+
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "inactive_users": total_users - active_users,
+            "users_by_role": users_by_role,
+        }
 
     def _issue_tokens(self, user: User) -> TokenResponse:
         refresh_token = generate_refresh_token()

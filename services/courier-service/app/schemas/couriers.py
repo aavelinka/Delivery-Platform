@@ -85,3 +85,11 @@ class AssignmentListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class CourierAdminSummary(BaseModel):
+    total_couriers: int
+    active_couriers: int
+    inactive_couriers: int
+    couriers_by_availability: dict[str, int]
+    assignments_by_status: dict[str, int]

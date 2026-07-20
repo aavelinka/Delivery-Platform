@@ -12,6 +12,7 @@ from app.core.auth import (
 )
 from app.db.session import get_db
 from app.schemas.notifications import (
+    NotificationAdminSummary,
     NotificationCreate,
     NotificationListResponse,
     NotificationRead,
@@ -23,6 +24,14 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 def get_notification_service(db: Session = Depends(get_db)) -> NotificationService:
     return NotificationService(db)
+
+
+@router.get("/admin/summary", response_model=NotificationAdminSummary)
+def admin_summary(
+    service: NotificationService = Depends(get_notification_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> NotificationAdminSummary:
+    return NotificationAdminSummary.model_validate(service.get_admin_summary())
 
 
 @router.post("", response_model=NotificationRead, status_code=status.HTTP_201_CREATED)

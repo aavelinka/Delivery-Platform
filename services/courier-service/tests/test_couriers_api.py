@@ -214,3 +214,45 @@ def test_auto_assign_order_event(client, db_session, auth_headers):
     assert assignment is not None
     assert str(assignment.courier_id) == courier_id
     assert str(assignment.order_id) == order_id
+
+
+def test_admin_summary_returns_courier_and_assignment_counts(client, auth_headers):
+    admin_headers = auth_headers(role="admin")
+    courier_response = client.post(
+        "/couriers",
+        json={
+            "user_id": str(uuid.uuid4()),
+            "full_name": "Alex Smith",
+            "city": "Minsk",
+        },
+        headers=admin_headers,
+    )
+    assert courier_response.status_code == 201
+    courier_id = courier_response.json()["id"]
+
+    online_response = client.patch(
+        f"/couriers/{courier_id}/availability",
+        json={"availability": "online"},
+        headers=admin_headers,
+    )
+    assert online_response.status_code == 200
+
+    assignment_response = client.post(
+        "/couriers/assignments",
+        json={
+            "courier_id": courier_id,
+            "order_id": str(uuid.uuid4()),
+            "payload": {},
+        },
+        headers=admin_headers,
+    )
+    assert assignment_response.status_code == 201
+
+    summary_response = client.get("/couriers/admin/summary", headers=admin_headers)
+
+    assert summary_response.status_code == 200
+    payload = summary_response.json()
+    assert payload["total_couriers"] == 1
+    assert payload["active_couriers"] == 1
+    assert payload["couriers_by_availability"]["busy"] == 1
+    assert payload["assignments_by_status"]["assigned"] == 1

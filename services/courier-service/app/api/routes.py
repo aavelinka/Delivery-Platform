@@ -17,6 +17,7 @@ from app.schemas.couriers import (
     AssignmentListResponse,
     AssignmentRead,
     AssignmentStatusUpdate,
+    CourierAdminSummary,
     CourierAvailabilityUpdate,
     CourierCreate,
     CourierListResponse,
@@ -30,6 +31,14 @@ router = APIRouter(prefix="/couriers", tags=["couriers"])
 
 def get_courier_service(db: Session = Depends(get_db)) -> CourierService:
     return CourierService(db)
+
+
+@router.get("/admin/summary", response_model=CourierAdminSummary)
+def admin_summary(
+    service: CourierService = Depends(get_courier_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> CourierAdminSummary:
+    return CourierAdminSummary.model_validate(service.get_admin_summary())
 
 
 @router.post("", response_model=CourierRead, status_code=status.HTTP_201_CREATED)

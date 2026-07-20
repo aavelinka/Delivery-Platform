@@ -39,3 +39,11 @@ class NotificationListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class NotificationAdminSummary(BaseModel):
+    total_notifications: int
+    read_notifications: int
+    unread_notifications: int
+    notifications_by_status: dict[str, int]
+    notifications_by_channel: dict[str, int]

@@ -91,6 +91,34 @@ class NotificationService:
         ).all()
         return list(items), total
 
+    def get_admin_summary(self) -> dict[str, int | dict[str, int]]:
+        total_notifications = self.db.scalar(select(func.count()).select_from(Notification)) or 0
+        read_notifications = (
+            self.db.scalar(select(func.count()).select_from(Notification).where(Notification.read_at.is_not(None)))
+            or 0
+        )
+        status_rows = self.db.execute(
+            select(Notification.status, func.count()).group_by(Notification.status)
+        ).all()
+        channel_rows = self.db.execute(
+            select(Notification.channel, func.count()).group_by(Notification.channel)
+        ).all()
+        notifications_by_status = {
+            str(status.value if isinstance(status, NotificationStatus) else status): count
+            for status, count in status_rows
+        }
+        notifications_by_channel = {
+            str(channel.value if isinstance(channel, NotificationChannel) else channel): count
+            for channel, count in channel_rows
+        }
+        return {
+            "total_notifications": total_notifications,
+            "read_notifications": read_notifications,
+            "unread_notifications": total_notifications - read_notifications,
+            "notifications_by_status": notifications_by_status,
+            "notifications_by_channel": notifications_by_channel,
+        }
+
     def mark_as_read(self, notification_id: uuid.UUID) -> Notification:
         notification = self.get_notification(notification_id)
         if notification.read_at is None:
