@@ -3,12 +3,14 @@
 `admin-service` provides an admin-only operational overview of the delivery platform.
 
 It does not own business data directly. Instead, it aggregates admin summaries from
-other services over internal HTTP, including `payment-service`.
+other services over internal HTTP, including `payment-service`, and derives
+high-level platform analytics from those summaries.
 
 ## Endpoints
 
 - `GET /admin/overview`
 - `GET /admin/services/health`
+- `GET /admin/analytics`
 
 ## Local Run
 
