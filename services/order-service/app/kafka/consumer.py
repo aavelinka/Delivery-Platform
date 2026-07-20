@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from aiokafka import AIOKafkaConsumer
+from platform_common.tracing import start_trace, traceparent_from_event
 
 from app.core.config import Settings
 from app.db.session import SessionLocal
@@ -64,21 +65,22 @@ class CourierEventsConsumer:
                 await asyncio.sleep(1)
 
     async def _handle_event(self, event: dict[str, Any]) -> None:
-        event_type = event.get("event_type")
-        if event_type not in {"courier_assigned", "assignment_status_changed"}:
-            return
-
-        with SessionLocal() as db:
-            service = OrderService(db)
-            if event_type == "courier_assigned":
-                result = service.apply_courier_assigned(event)
-            else:
-                result = service.apply_assignment_status_changed(event)
-            if result is None:
-                logger.info("Courier event ignored: %s", event.get("event_id"))
+        with start_trace(traceparent_from_event(event)):
+            event_type = event.get("event_type")
+            if event_type not in {"courier_assigned", "assignment_status_changed"}:
                 return
 
-            logger.info("Courier event applied: %s", event.get("event_id"))
+            with SessionLocal() as db:
+                service = OrderService(db)
+                if event_type == "courier_assigned":
+                    result = service.apply_courier_assigned(event)
+                else:
+                    result = service.apply_assignment_status_changed(event)
+                if result is None:
+                    logger.info("Courier event ignored: %s", event.get("event_id"))
+                    return
+
+                logger.info("Courier event applied: %s", event.get("event_id"))
 
 
 class NoopCourierEventsConsumer:

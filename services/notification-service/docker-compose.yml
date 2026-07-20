@@ -5,8 +5,8 @@ services:
       POSTGRES_DB: notifications
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5434:5432"
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d notifications"]
       interval: 10s
@@ -23,8 +23,8 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
-    ports:
-      - "2183:2181"
+    expose:
+      - "2181"
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
@@ -44,8 +44,8 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
-    ports:
-      - "9094:9092"
+    expose:
+      - "9092"
 
   notification-service:
     build:
@@ -69,4 +69,4 @@ services:
       NOTIFICATION_SERVICE_NAME: notification-service
       NOTIFICATION_ENVIRONMENT: local
     ports:
-      - "8002:8000"
+      - "${NOTIFICATION_SERVICE_HOST_PORT:-8002}:8000"

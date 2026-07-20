@@ -3,6 +3,7 @@ import uuid
 import httpx
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
+from platform_common.tracing import start_trace
 
 from app.auth import decode_access_token
 from app.config import get_settings
@@ -47,6 +48,21 @@ def test_forward_headers_strips_spoofed_identity(token_factory):
     assert headers["x-gateway-secret"] == "test-gateway-secret"
     assert headers["x-request-id"] == "request-1"
     assert "authorization" not in headers
+
+
+def test_forward_headers_propagates_traceparent(token_factory):
+    user_id = uuid.uuid4()
+    current_user = decode_access_token(get_settings(), f"Bearer {token_factory(user_id)}")
+
+    with start_trace() as trace_context:
+        headers = _forward_headers(
+            source_headers={"authorization": "Bearer token"},
+            settings=get_settings(),
+            current_user=current_user,
+            request_id="request-1",
+        )
+
+    assert headers["traceparent"] == trace_context.traceparent
 
 
 def test_target_routing():
@@ -167,6 +183,33 @@ def test_gateway_returns_request_id_header(monkeypatch, token_factory):
 
     assert response.status_code == 200
     assert response.headers["x-request-id"] == "gateway-request-id"
+
+
+def test_gateway_returns_trace_headers(monkeypatch, token_factory):
+    async def fake_send_with_retries(**kwargs):
+        return httpx.Response(
+            200,
+            json={"status": "ok"},
+            headers={"content-type": "application/json"},
+            request=httpx.Request(kwargs["method"], kwargs["target_url"]),
+        )
+
+    monkeypatch.setattr("app.main._send_with_retries", fake_send_with_retries)
+    incoming_traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/orders",
+            headers={
+                "authorization": f"Bearer {token_factory(uuid.uuid4())}",
+                "traceparent": incoming_traceparent,
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["traceparent"] != incoming_traceparent
+    assert response.headers["x-trace-id"] == "4bf92f3577b34da6a3ce929d0e0e4736"
+    assert response.headers["traceparent"].split("-")[1] == "4bf92f3577b34da6a3ce929d0e0e4736"
 
 
 def test_metrics_endpoint_exposes_http_metrics():

@@ -6,6 +6,7 @@ from typing import Any, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from platform_common.tracing import inject_trace_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def add_outbox_event(
     topic: str,
     payload: dict[str, Any],
 ) -> OutboxEventModel:
-    event = event_model(topic=topic, payload=payload)
+    event = event_model(topic=topic, payload=inject_trace_metadata(payload))
     db.add(event)
     return event
 

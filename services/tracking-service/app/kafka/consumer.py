@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from aiokafka import AIOKafkaConsumer
+from platform_common.tracing import start_trace, traceparent_from_event
 
 from app.core.config import Settings
 from app.db.session import SessionLocal
@@ -64,14 +65,15 @@ class OrderEventsConsumer:
                 await asyncio.sleep(1)
 
     async def _handle_event(self, event: dict[str, Any]) -> None:
-        if event.get("aggregate_type") != "order":
-            return
+        with start_trace(traceparent_from_event(event)):
+            if event.get("aggregate_type") != "order":
+                return
 
-        with SessionLocal() as db:
-            service = TrackingService(db)
-            tracked_order = service.apply_order_event(event)
-            if tracked_order is None:
-                logger.info("Order event ignored: %s", event.get("event_id"))
+            with SessionLocal() as db:
+                service = TrackingService(db)
+                tracked_order = service.apply_order_event(event)
+                if tracked_order is None:
+                    logger.info("Order event ignored: %s", event.get("event_id"))
 
 
 class NoopOrderEventsConsumer:

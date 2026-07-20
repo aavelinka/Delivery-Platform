@@ -10,6 +10,7 @@ from platform_common.observability import (
     get_request_id,
     install_request_observability,
 )
+from platform_common.tracing import get_traceparent
 
 from app.auth import CurrentUser, decode_access_token
 from app.config import Settings, get_settings
@@ -163,6 +164,9 @@ def _forward_headers(
         if current_user.email is not None:
             headers["x-user-email"] = current_user.email
     headers["x-request-id"] = request_id
+    traceparent = get_traceparent()
+    if traceparent is not None:
+        headers["traceparent"] = traceparent
     return headers
 
 

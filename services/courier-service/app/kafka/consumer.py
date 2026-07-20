@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from aiokafka import AIOKafkaConsumer
+from platform_common.tracing import start_trace, traceparent_from_event
 
 from app.core.config import Settings
 from app.db.session import SessionLocal
@@ -64,17 +65,18 @@ class OrderEventsConsumer:
                 await asyncio.sleep(1)
 
     async def _handle_event(self, event: dict[str, Any]) -> None:
-        if event.get("event_type") != "order_created":
-            return
-
-        with SessionLocal() as db:
-            service = CourierService(db)
-            assignment = service.auto_assign_order(event)
-            if assignment is None:
-                logger.info("No available courier for order event %s", event.get("event_id"))
+        with start_trace(traceparent_from_event(event)):
+            if event.get("event_type") != "order_created":
                 return
 
-            logger.info("Order event auto-assigned: %s", event.get("event_id"))
+            with SessionLocal() as db:
+                service = CourierService(db)
+                assignment = service.auto_assign_order(event)
+                if assignment is None:
+                    logger.info("No available courier for order event %s", event.get("event_id"))
+                    return
+
+                logger.info("Order event auto-assigned: %s", event.get("event_id"))
 
 
 class NoopOrderEventsConsumer:

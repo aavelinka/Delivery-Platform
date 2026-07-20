@@ -3,6 +3,7 @@ import uuid
 from decimal import Decimal
 
 from platform_common.outbox import OutboxPublisher
+from platform_common.tracing import start_trace
 from sqlalchemy import select
 
 from app.core.config import get_settings
@@ -69,6 +70,19 @@ def test_outbox_publisher_marks_order_event_as_published(db_session):
         assert publisher.messages == [(published_event.topic, published_event.payload)]
 
 
+def test_outbox_event_includes_trace_metadata(db_session):
+    with start_trace() as trace_context:
+        _create_order(db_session)
+
+    pending_event = db_session.scalar(select(OutboxEvent))
+    assert pending_event is not None
+
+    trace_metadata = pending_event.payload["metadata"]["trace"]
+    assert trace_metadata["trace_id"] == trace_context.trace_id
+    assert trace_metadata["span_id"] == trace_context.span_id
+    assert trace_metadata["traceparent"] == trace_context.traceparent
+
+
 def test_outbox_publisher_retries_failed_order_event(db_session):
     _create_order(db_session)
 
@@ -106,6 +120,8 @@ def test_courier_consumer_applies_assignment_events(db_session):
     courier_user_id = uuid.uuid4()
     assignment_id = uuid.uuid4()
     consumer = CourierEventsConsumer(get_settings())
+    with start_trace() as upstream_trace:
+        trace_metadata = upstream_trace.as_metadata()
 
     asyncio.run(
         consumer._handle_event(
@@ -124,6 +140,7 @@ def test_courier_consumer_applies_assignment_events(db_session):
                     "order_id": str(order.id),
                     "courier_user_id": str(courier_user_id),
                     "status": "assigned",
+                    "trace": trace_metadata,
                 },
             }
         )
@@ -146,6 +163,7 @@ def test_courier_consumer_applies_assignment_events(db_session):
                     "order_id": str(order.id),
                     "courier_user_id": str(courier_user_id),
                     "status": "picked_up",
+                    "trace": trace_metadata,
                 },
             }
         )
@@ -163,3 +181,15 @@ def test_courier_consumer_applies_assignment_events(db_session):
         event_types = [event.payload["event_type"] for event in outbox_events]
         assert "courier_assigned" in event_types
         assert "delivery_started" in event_types
+
+        propagated_events = [
+            event
+            for event in outbox_events
+            if event.payload["event_type"] in {"courier_assigned", "delivery_started"}
+        ]
+        assert len(propagated_events) == 2
+        for event in propagated_events:
+            trace = event.payload["metadata"]["trace"]
+            assert trace["trace_id"] == upstream_trace.trace_id
+            assert trace["parent_span_id"] == upstream_trace.span_id
+            assert trace["span_id"] != upstream_trace.span_id

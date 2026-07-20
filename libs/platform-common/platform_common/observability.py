@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
+from platform_common.tracing import TRACEPARENT_HEADER, TraceContext, start_trace
 
 _STRUCTURED_HANDLER_NAME = "delivery-platform-structured-handler"
 
@@ -42,43 +43,49 @@ def install_request_observability(app: FastAPI, service_name: str) -> None:
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         request_id = get_request_id(request)
-        request.state.request_id = request_id
-        started_at = time.perf_counter()
-        response: Response | None = None
-        status_code = 500
-        try:
-            response = await call_next(request)
-            status_code = response.status_code
-            response.headers["x-request-id"] = request_id
-            return response
-        finally:
-            route_path = _route_path(request)
-            status_code_label = str(status_code)
-            duration_seconds = time.perf_counter() - started_at
-            requests_total.labels(
-                service=service_name,
-                method=request.method,
-                path=route_path,
-                status_code=status_code_label,
-            ).inc()
-            request_duration_seconds.labels(
-                service=service_name,
-                method=request.method,
-                path=route_path,
-                status_code=status_code_label,
-            ).observe(duration_seconds)
-            logger.info(
-                json.dumps(
-                    _request_log_payload(
-                        service_name=service_name,
-                        request=request,
-                        request_id=request_id,
-                        status_code=status_code,
-                        duration_ms=duration_seconds * 1000,
-                    ),
-                    sort_keys=True,
+        with start_trace(request.headers.get(TRACEPARENT_HEADER)) as trace_context:
+            request.state.request_id = request_id
+            request.state.trace_id = trace_context.trace_id
+            request.state.traceparent = trace_context.traceparent
+            started_at = time.perf_counter()
+            response: Response | None = None
+            status_code = 500
+            try:
+                response = await call_next(request)
+                status_code = response.status_code
+                response.headers["x-request-id"] = request_id
+                response.headers["x-trace-id"] = trace_context.trace_id
+                response.headers[TRACEPARENT_HEADER] = trace_context.traceparent
+                return response
+            finally:
+                route_path = _route_path(request)
+                status_code_label = str(status_code)
+                duration_seconds = time.perf_counter() - started_at
+                requests_total.labels(
+                    service=service_name,
+                    method=request.method,
+                    path=route_path,
+                    status_code=status_code_label,
+                ).inc()
+                request_duration_seconds.labels(
+                    service=service_name,
+                    method=request.method,
+                    path=route_path,
+                    status_code=status_code_label,
+                ).observe(duration_seconds)
+                logger.info(
+                    json.dumps(
+                        _request_log_payload(
+                            service_name=service_name,
+                            request=request,
+                            request_id=request_id,
+                            trace_context=trace_context,
+                            status_code=status_code,
+                            duration_ms=duration_seconds * 1000,
+                        ),
+                        sort_keys=True,
+                    )
                 )
-            )
 
 
 def get_request_id(request: Request) -> str:
@@ -121,6 +128,7 @@ def _request_log_payload(
     service_name: str,
     request: Request,
     request_id: str,
+    trace_context: TraceContext,
     status_code: int,
     duration_ms: float,
 ) -> dict[str, str | int | float]:
@@ -128,11 +136,15 @@ def _request_log_payload(
         "event": "http_request_completed",
         "service": service_name,
         "request_id": request_id,
+        "trace_id": trace_context.trace_id,
+        "span_id": trace_context.span_id,
         "method": request.method,
         "path": request.url.path,
         "status_code": status_code,
         "duration_ms": round(duration_ms, 2),
     }
+    if trace_context.parent_span_id is not None:
+        payload["parent_span_id"] = trace_context.parent_span_id
     if request.url.query:
         payload["query"] = request.url.query
     if request.client is not None:

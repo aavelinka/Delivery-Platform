@@ -5,8 +5,8 @@ services:
       POSTGRES_DB: tracking
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - "5437:5432"
+    expose:
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d tracking"]
       interval: 10s
@@ -23,8 +23,8 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
-    ports:
-      - "2184:2181"
+    expose:
+      - "2181"
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
@@ -44,8 +44,8 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
-    ports:
-      - "9095:9092"
+    expose:
+      - "9092"
 
   tracking-service:
     build:
@@ -70,4 +70,4 @@ services:
       TRACKING_SERVICE_NAME: tracking-service
       TRACKING_ENVIRONMENT: local
     ports:
-      - "8005:8000"
+      - "${TRACKING_SERVICE_HOST_PORT:-8005}:8000"

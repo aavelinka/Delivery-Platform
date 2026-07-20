@@ -1,6 +1,13 @@
 SHELL := /bin/sh
 
 PYTHON ?= .venv/bin/python
+API_GATEWAY_HOST_PORT ?= 8080
+AUTH_SERVICE_HOST_PORT ?= 8003
+ORDER_SERVICE_HOST_PORT ?= 8000
+COURIER_SERVICE_HOST_PORT ?= 8001
+NOTIFICATION_SERVICE_HOST_PORT ?= 8002
+USER_SERVICE_HOST_PORT ?= 8004
+TRACKING_SERVICE_HOST_PORT ?= 8005
 SERVICES := api-gateway auth-service user-service order-service courier-service tracking-service notification-service
 POSTGRES_TEST_SERVICES := auth-service user-service order-service courier-service tracking-service notification-service
 
@@ -61,10 +68,10 @@ test-services-postgres:
 test: test-api-gateway test-services-postgres
 
 smoke-service-composes:
-	./scripts/smoke-service-compose.sh auth-service 8003 smoke-auth-service
-	./scripts/smoke-service-compose.sh user-service 8004 smoke-user-service
-	./scripts/smoke-service-compose.sh order-service 8000 smoke-order-service
-	./scripts/smoke-service-compose.sh courier-service 8001 smoke-courier-service
-	./scripts/smoke-service-compose.sh tracking-service 8005 smoke-tracking-service
-	./scripts/smoke-service-compose.sh notification-service 8002 smoke-notification-service
-	./scripts/smoke-service-compose.sh api-gateway 8080 smoke-api-gateway
+	./scripts/smoke-service-compose.sh auth-service $(AUTH_SERVICE_HOST_PORT) smoke-auth-service
+	./scripts/smoke-service-compose.sh user-service $(USER_SERVICE_HOST_PORT) smoke-user-service
+	./scripts/smoke-service-compose.sh order-service $(ORDER_SERVICE_HOST_PORT) smoke-order-service
+	./scripts/smoke-service-compose.sh courier-service $(COURIER_SERVICE_HOST_PORT) smoke-courier-service
+	./scripts/smoke-service-compose.sh tracking-service $(TRACKING_SERVICE_HOST_PORT) smoke-tracking-service
+	./scripts/smoke-service-compose.sh notification-service $(NOTIFICATION_SERVICE_HOST_PORT) smoke-notification-service
+	./scripts/smoke-service-compose.sh api-gateway $(API_GATEWAY_HOST_PORT) smoke-api-gateway

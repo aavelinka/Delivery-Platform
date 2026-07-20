@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Protocol
 
 from fastapi import Depends, Header, HTTPException, status
-from jose import JWTError, jwt
+from jose import JWTError, jwt  # type: ignore[import-untyped]
 from pydantic import BaseModel, EmailStr
 
 

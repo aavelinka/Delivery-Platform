@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from aiokafka import AIOKafkaConsumer
+from platform_common.tracing import start_trace, traceparent_from_event
 
 from app.core.config import Settings
 from app.db.session import SessionLocal
@@ -64,15 +65,16 @@ class NotificationConsumer:
                 await asyncio.sleep(1)
 
     async def _handle_message(self, event: dict[str, Any]) -> None:
-        with SessionLocal() as db:
-            service = NotificationService(db)
-            notification = service.create_from_event(event)
-            if notification is not None:
-                logger.info(
-                    "Created notification %s from event %s",
-                    notification.id,
-                    event.get("event_type"),
-                )
+        with start_trace(traceparent_from_event(event)):
+            with SessionLocal() as db:
+                service = NotificationService(db)
+                notification = service.create_from_event(event)
+                if notification is not None:
+                    logger.info(
+                        "Created notification %s from event %s",
+                        notification.id,
+                        event.get("event_type"),
+                    )
 
 
 class NoopNotificationConsumer:

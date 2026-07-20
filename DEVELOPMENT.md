@@ -34,6 +34,11 @@ the Compose network and trust headers signed by `GATEWAY_INTERNAL_SECRET`.
 Each implemented service has its own `docker-compose.yml` under `services/<name>/`.
 Use this when iterating on one service in isolation.
 
+In standalone service compose files, only the service HTTP port is published to
+the host. PostgreSQL, Kafka, and ZooKeeper stay internal to that stack, so
+standalone runs do not fight with the root `docker-compose.yml` over DB or
+broker ports.
+
 ### Tests
 
 Test suites use PostgreSQL, not SQLite. Start test databases first:
