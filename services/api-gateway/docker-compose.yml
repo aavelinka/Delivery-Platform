@@ -1,9 +1,17 @@
+x-observability-env: &observability-env
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+  OTEL_EXPORTER_OTLP_TIMEOUT: ${OTEL_EXPORTER_OTLP_TIMEOUT:-10}
+
 services:
   api-gateway:
     build:
       context: ../..
       dockerfile: services/api-gateway/Dockerfile
     environment:
+      <<: *observability-env
       GATEWAY_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
       GATEWAY_AUTH_SERVICE_URL: http://host.docker.internal:${AUTH_SERVICE_HOST_PORT:-8003}

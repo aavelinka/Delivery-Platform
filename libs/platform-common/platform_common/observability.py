@@ -6,6 +6,11 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
+from platform_common.telemetry import (
+    configure_telemetry,
+    enrich_current_span,
+    mark_current_span_http_status,
+)
 from platform_common.tracing import TRACEPARENT_HEADER, TraceContext, start_trace
 
 _STRUCTURED_HANDLER_NAME = "delivery-platform-structured-handler"
@@ -16,7 +21,12 @@ def configure_logging() -> None:
     logging.getLogger().setLevel(logging.INFO)
 
 
-def install_request_observability(app: FastAPI, service_name: str) -> None:
+def install_request_observability(
+    app: FastAPI,
+    service_name: str,
+    environment: str | None = None,
+) -> None:
+    configure_telemetry(service_name, environment)
     logger = _request_logger(service_name)
     registry = CollectorRegistry()
     requests_total = Counter(
@@ -43,7 +53,16 @@ def install_request_observability(app: FastAPI, service_name: str) -> None:
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         request_id = get_request_id(request)
-        with start_trace(request.headers.get(TRACEPARENT_HEADER)) as trace_context:
+        trace_attributes = {
+            "http.request.method": request.method,
+            "url.path": request.url.path,
+        }
+        with start_trace(
+            request.headers.get(TRACEPARENT_HEADER),
+            span_name=f"{request.method} {request.url.path}",
+            span_kind="server",
+            attributes=trace_attributes,
+        ) as trace_context:
             request.state.request_id = request_id
             request.state.trace_id = trace_context.trace_id
             request.state.traceparent = trace_context.traceparent
@@ -61,6 +80,14 @@ def install_request_observability(app: FastAPI, service_name: str) -> None:
                 route_path = _route_path(request)
                 status_code_label = str(status_code)
                 duration_seconds = time.perf_counter() - started_at
+                enrich_current_span(
+                    {
+                        "http.route": route_path,
+                        "http.response.status_code": status_code,
+                        "http.request.duration_ms": round(duration_seconds * 1000, 2),
+                    }
+                )
+                mark_current_span_http_status(status_code)
                 requests_total.labels(
                     service=service_name,
                     method=request.method,

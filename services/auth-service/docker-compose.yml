@@ -1,3 +1,10 @@
+x-observability-env: &observability-env
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+  OTEL_EXPORTER_OTLP_TIMEOUT: ${OTEL_EXPORTER_OTLP_TIMEOUT:-10}
+
 services:
   postgres:
     image: postgres:16
@@ -22,6 +29,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      <<: *observability-env
       AUTH_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/auth
       AUTH_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       AUTH_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}

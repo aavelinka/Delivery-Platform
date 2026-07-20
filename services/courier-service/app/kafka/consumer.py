@@ -56,7 +56,7 @@ class OrderEventsConsumer:
         while not self._stopped.is_set():
             try:
                 message = await self._consumer.getone()
-                await self._handle_event(message.value)
+                await self._handle_event(message.value, topic=message.topic)
                 await self._consumer.commit()
             except asyncio.CancelledError:
                 raise
@@ -64,8 +64,21 @@ class OrderEventsConsumer:
                 logger.exception("Failed to handle order event: %s", exc)
                 await asyncio.sleep(1)
 
-    async def _handle_event(self, event: dict[str, Any]) -> None:
-        with start_trace(traceparent_from_event(event)):
+    async def _handle_event(self, event: dict[str, Any], topic: str | None = None) -> None:
+        event_type = str(event.get("event_type") or "unknown")
+        with start_trace(
+            traceparent_from_event(event),
+            span_name=f"kafka consume {event_type}",
+            span_kind="consumer",
+            attributes={
+                "messaging.system": "kafka",
+                "messaging.operation": "process",
+                "messaging.destination.name": topic or self.settings.kafka_orders_topic,
+                "messaging.message.id": event.get("event_id"),
+                "messaging.message.conversation_id": event.get("aggregate_id"),
+                "messaging.delivery.delivery_platform.event_type": event_type,
+            },
+        ):
             if event.get("event_type") != "order_created":
                 return
 

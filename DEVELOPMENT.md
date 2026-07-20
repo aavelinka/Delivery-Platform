@@ -33,6 +33,17 @@ reached through the gateway in normal external flows. `payment-service` should
 also be reached through `api-gateway` in the full stack rather than by calling
 its container directly.
 
+Optional OpenTelemetry trace export can be enabled for either root compose or
+standalone service compose runs with:
+
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318/v1/traces
+```
+
+If `OTEL_ENABLED=true` is set without an OTLP endpoint, services fall back to
+the console span exporter.
+
 ### Single service
 
 Each implemented service has its own `docker-compose.yml` under `services/<name>/`.
@@ -78,6 +89,15 @@ make test-kafka-contracts
 
 That target runs contract checks from `tests/contracts/test_kafka_contracts.py`
 against real producer and consumer code paths with isolated PostgreSQL schemas.
+
+For `platform-common` tracing and observability only:
+
+```bash
+make test-platform-common
+```
+
+That target covers the shared tracing context, telemetry bridge, and graceful
+fallback behavior when the OpenTelemetry SDK is unavailable locally.
 
 ## Event Flow
 

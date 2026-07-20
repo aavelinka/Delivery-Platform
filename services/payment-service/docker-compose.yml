@@ -1,3 +1,10 @@
+x-observability-env: &observability-env
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+  OTEL_EXPORTER_OTLP_TIMEOUT: ${OTEL_EXPORTER_OTLP_TIMEOUT:-10}
+
 services:
   postgres:
     image: postgres:16
@@ -57,6 +64,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      <<: *observability-env
       PAYMENT_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/payments
       PAYMENT_KAFKA_ENABLED: "true"
       PAYMENT_KAFKA_BOOTSTRAP_SERVERS: kafka:9092

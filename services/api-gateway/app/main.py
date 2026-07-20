@@ -45,7 +45,7 @@ def create_app() -> FastAPI:
     configure_logging()
     settings = get_settings()
     app = FastAPI(title=settings.service_name, version="0.1.0")
-    install_request_observability(app, settings.service_name)
+    install_request_observability(app, settings.service_name, settings.environment)
 
     @app.get("/health")
     def health() -> dict[str, str]:

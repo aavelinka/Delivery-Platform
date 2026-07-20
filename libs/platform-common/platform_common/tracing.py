@@ -7,6 +7,8 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from typing import Any
 
+from platform_common.telemetry import TelemetrySpanHandle, start_telemetry_span
+
 TRACEPARENT_HEADER = "traceparent"
 TRACE_METADATA_KEY = "trace"
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -42,19 +44,46 @@ class TraceContext:
 
 
 @contextmanager
-def start_trace(traceparent: str | None = None) -> Iterator[TraceContext]:
+def start_trace(
+    traceparent: str | None = None,
+    *,
+    span_name: str | None = None,
+    span_kind: str = "internal",
+    attributes: Mapping[str, Any] | None = None,
+) -> Iterator[TraceContext]:
     parent_context = parse_traceparent(traceparent)
-    trace_context = TraceContext(
-        trace_id=parent_context.trace_id if parent_context is not None else uuid.uuid4().hex,
-        span_id=_new_span_id(),
-        parent_span_id=parent_context.span_id if parent_context is not None else None,
-        trace_flags=parent_context.trace_flags if parent_context is not None else "01",
+    telemetry_span = _start_telemetry_span(
+        traceparent=traceparent,
+        span_name=span_name,
+        span_kind=span_kind,
+        attributes=attributes,
+    )
+    trace_context = (
+        TraceContext(
+            trace_id=telemetry_span.trace_id,
+            span_id=telemetry_span.span_id,
+            parent_span_id=parent_context.span_id if parent_context is not None else None,
+            trace_flags=telemetry_span.trace_flags,
+        )
+        if telemetry_span is not None
+        else TraceContext(
+            trace_id=parent_context.trace_id if parent_context is not None else uuid.uuid4().hex,
+            span_id=_new_span_id(),
+            parent_span_id=parent_context.span_id if parent_context is not None else None,
+            trace_flags=parent_context.trace_flags if parent_context is not None else "01",
+        )
     )
     token: Token[TraceContext | None] = _CURRENT_TRACE_CONTEXT.set(trace_context)
     try:
         yield trace_context
+    except Exception as exc:
+        if telemetry_span is not None:
+            telemetry_span.record_exception(exc)
+        raise
     finally:
         _CURRENT_TRACE_CONTEXT.reset(token)
+        if telemetry_span is not None:
+            telemetry_span.end()
 
 
 def current_trace_context() -> TraceContext | None:
@@ -160,3 +189,18 @@ def _is_valid_span_id(span_id: str) -> bool:
 
 def _is_valid_trace_flags(trace_flags: str) -> bool:
     return bool(_TRACE_FLAGS_RE.fullmatch(trace_flags))
+
+
+def _start_telemetry_span(
+    *,
+    traceparent: str | None,
+    span_name: str | None,
+    span_kind: str,
+    attributes: Mapping[str, Any] | None,
+) -> TelemetrySpanHandle | None:
+    return start_telemetry_span(
+        span_name=span_name or "delivery-platform.operation",
+        traceparent=traceparent,
+        span_kind=span_kind,
+        attributes=attributes,
+    )

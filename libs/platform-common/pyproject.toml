@@ -10,6 +10,9 @@ requires-python = ">=3.12"
 dependencies = [
     "email-validator>=2.2.0",
     "fastapi>=0.115.0",
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
     "pydantic>=2.8.0",
     "prometheus-client>=0.22.0",
     "python-jose[cryptography]>=3.3.0",

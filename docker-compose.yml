@@ -1,3 +1,10 @@
+x-observability-env: &observability-env
+  OTEL_ENABLED: ${OTEL_ENABLED:-false}
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+  OTEL_EXPORTER_OTLP_TIMEOUT: ${OTEL_EXPORTER_OTLP_TIMEOUT:-10}
+
 services:
   orders-postgres:
     image: postgres:16
@@ -157,6 +164,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      <<: *observability-env
       ORDER_DATABASE_URL: postgresql+psycopg://postgres:postgres@orders-postgres:5432/orders
       ORDER_KAFKA_ENABLED: "true"
       ORDER_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -182,6 +190,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      <<: *observability-env
       COURIER_DATABASE_URL: postgresql+psycopg://postgres:postgres@couriers-postgres:5432/couriers
       COURIER_KAFKA_ENABLED: "true"
       COURIER_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -207,6 +216,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      <<: *observability-env
       NOTIFICATION_DATABASE_URL: >-
         postgresql+psycopg://postgres:postgres@notifications-postgres:5432/notifications
       NOTIFICATION_KAFKA_ENABLED: "true"
@@ -230,6 +240,7 @@ services:
       auth-postgres:
         condition: service_healthy
     environment:
+      <<: *observability-env
       AUTH_DATABASE_URL: postgresql+psycopg://postgres:postgres@auth-postgres:5432/auth
       AUTH_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       AUTH_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
@@ -252,6 +263,7 @@ services:
       users-postgres:
         condition: service_healthy
     environment:
+      <<: *observability-env
       USER_DATABASE_URL: postgresql+psycopg://postgres:postgres@users-postgres:5432/users
       USER_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       USER_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
@@ -271,6 +283,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      <<: *observability-env
       TRACKING_DATABASE_URL: postgresql+psycopg://postgres:postgres@tracking-postgres:5432/tracking
       TRACKING_KAFKA_ENABLED: "true"
       TRACKING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -296,6 +309,7 @@ services:
       kafka:
         condition: service_healthy
     environment:
+      <<: *observability-env
       PAYMENT_DATABASE_URL: postgresql+psycopg://postgres:postgres@payments-postgres:5432/payments
       PAYMENT_KAFKA_ENABLED: "true"
       PAYMENT_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -321,6 +335,7 @@ services:
       - notification-service
       - payment-service
     environment:
+      <<: *observability-env
       ADMIN_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       ADMIN_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
       ADMIN_AUTH_SERVICE_URL: http://auth-service:8000
@@ -349,6 +364,7 @@ services:
       - admin-service
       - payment-service
     environment:
+      <<: *observability-env
       GATEWAY_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
       GATEWAY_AUTH_SERVICE_URL: http://auth-service:8000

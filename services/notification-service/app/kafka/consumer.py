@@ -56,7 +56,7 @@ class NotificationConsumer:
         while not self._stopped.is_set():
             try:
                 message = await self._consumer.getone()
-                await self._handle_message(message.value)
+                await self._handle_message(message.value, topic=message.topic)
                 await self._consumer.commit()
             except asyncio.CancelledError:
                 raise
@@ -64,8 +64,21 @@ class NotificationConsumer:
                 logger.exception("Failed to consume notification event: %s", exc)
                 await asyncio.sleep(1)
 
-    async def _handle_message(self, event: dict[str, Any]) -> None:
-        with start_trace(traceparent_from_event(event)):
+    async def _handle_message(self, event: dict[str, Any], topic: str | None = None) -> None:
+        event_type = str(event.get("event_type") or "unknown")
+        with start_trace(
+            traceparent_from_event(event),
+            span_name=f"kafka consume {event_type}",
+            span_kind="consumer",
+            attributes={
+                "messaging.system": "kafka",
+                "messaging.operation": "process",
+                "messaging.destination.name": topic or ",".join(self.settings.kafka_topics),
+                "messaging.message.id": event.get("event_id"),
+                "messaging.message.conversation_id": event.get("aggregate_id"),
+                "messaging.delivery.delivery_platform.event_type": event_type,
+            },
+        ):
             with SessionLocal() as db:
                 service = NotificationService(db)
                 notification = service.create_from_event(event)

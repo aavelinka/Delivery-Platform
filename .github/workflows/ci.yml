@@ -255,5 +255,11 @@ jobs:
       - name: Install repository dependencies
         run: make install
 
+      - name: Ruff platform-common tests
+        run: .venv/bin/python -m ruff check tests/platform_common
+
+      - name: Platform common tests
+        run: .venv/bin/python -m pytest -q tests/platform_common/test_tracing.py
+
       - name: Kafka contracts
         run: .venv/bin/python -m pytest -q tests/contracts/test_kafka_contracts.py
