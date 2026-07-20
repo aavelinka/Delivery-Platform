@@ -63,7 +63,7 @@ services:
       NOTIFICATION_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       NOTIFICATION_KAFKA_CLIENT_ID: notification-service
       NOTIFICATION_KAFKA_GROUP_ID: notification-service
-      NOTIFICATION_KAFKA_TOPICS: '["orders.events","couriers.events"]'
+      NOTIFICATION_KAFKA_TOPICS: '["orders.events","couriers.events","payments.events"]'
       NOTIFICATION_JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY}
       NOTIFICATION_GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:?set GATEWAY_INTERNAL_SECRET}
       NOTIFICATION_SERVICE_NAME: notification-service

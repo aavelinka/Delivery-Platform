@@ -169,3 +169,91 @@ jobs:
 
       - name: Gateway e2e
         run: make test-e2e-gateway
+
+  kafka-contracts:
+    runs-on: ubuntu-latest
+    services:
+      orders-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: orders
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5438:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d orders"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      couriers-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: couriers
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d couriers"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      notifications-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: notifications
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d notifications"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      tracking-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: tracking
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5437:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tracking"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      payments-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: payments
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d payments"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bootstrap venv
+        run: make bootstrap
+
+      - name: Install repository dependencies
+        run: make install
+
+      - name: Kafka contracts
+        run: .venv/bin/python -m pytest -q tests/contracts/test_kafka_contracts.py

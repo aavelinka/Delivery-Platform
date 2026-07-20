@@ -99,6 +99,79 @@ def test_create_notification_from_courier_event_uses_courier_user_id(db_session)
     assert notification.title == "Courier assigned"
 
 
+def test_create_notification_from_payment_confirmed_event(db_session):
+    user_id = str(uuid.uuid4())
+    order_id = str(uuid.uuid4())
+    payment_id = str(uuid.uuid4())
+    service = NotificationService(db_session)
+
+    notification = service.create_from_event(
+        {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "payment_confirmed",
+            "aggregate_type": "payment",
+            "aggregate_id": payment_id,
+            "payload": {
+                "payment_id": payment_id,
+                "order_id": order_id,
+                "user_id": user_id,
+                "amount": "149.90",
+                "currency": "USD",
+            },
+            "metadata": {
+                "payment_id": payment_id,
+                "order_id": order_id,
+                "user_id": user_id,
+                "status": "confirmed",
+                "amount": "149.90",
+                "currency": "USD",
+            },
+        }
+    )
+
+    assert notification is not None
+    assert str(notification.user_id) == user_id
+    assert notification.source_event_type == "payment_confirmed"
+    assert notification.title == "Payment confirmed"
+    assert payment_id in notification.message
+
+
+def test_create_notification_from_payment_failed_event_uses_reason(db_session):
+    user_id = str(uuid.uuid4())
+    order_id = str(uuid.uuid4())
+    payment_id = str(uuid.uuid4())
+    service = NotificationService(db_session)
+
+    notification = service.create_from_event(
+        {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "payment_failed",
+            "aggregate_type": "payment",
+            "aggregate_id": payment_id,
+            "payload": {
+                "payment_id": payment_id,
+                "order_id": order_id,
+                "user_id": user_id,
+                "amount": "149.90",
+                "currency": "USD",
+                "reason": "Acquirer timeout",
+            },
+            "metadata": {
+                "payment_id": payment_id,
+                "order_id": order_id,
+                "user_id": user_id,
+                "status": "failed",
+                "amount": "149.90",
+                "currency": "USD",
+            },
+        }
+    )
+
+    assert notification is not None
+    assert notification.title == "Payment failed"
+    assert "Acquirer timeout" in notification.message
+
+
 def test_event_processing_is_idempotent(db_session):
     event_id = str(uuid.uuid4())
     user_id = str(uuid.uuid4())

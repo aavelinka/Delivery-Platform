@@ -160,6 +160,23 @@ class NotificationService:
         metadata: dict[str, Any],
     ) -> tuple[str | None, str | None]:
         order_id = payload.get("order_id") or metadata.get("order_id")
+        payment_id = payload.get("payment_id") or metadata.get("payment_id")
+        amount = payload.get("amount") or metadata.get("amount")
+        currency = payload.get("currency") or metadata.get("currency")
+        reason = payload.get("reason") or payload.get("failure_reason") or metadata.get("reason")
+        order_label = str(order_id) if order_id is not None else "unknown order"
+        payment_label = str(payment_id) if payment_id is not None else "unknown payment"
+        amount_label = " ".join(
+            part
+            for part in (
+                str(amount) if amount is not None else "",
+                str(currency) if currency is not None else "",
+            )
+            if part
+        )
+        if not amount_label:
+            amount_label = "unknown amount"
+        reason_label = str(reason) if reason else "unknown reason"
         courier_id = (
             payload.get("courier_user_id")
             or metadata.get("courier_user_id")
@@ -199,6 +216,25 @@ class NotificationService:
             "assignment_status_changed": (
                 "Assignment status changed",
                 f"Courier assignment for order {order_id} changed to {metadata.get('status')}.",
+            ),
+            "payment_created": (
+                "Payment created",
+                f"Payment {payment_label} for order {order_label} was created for {amount_label}.",
+            ),
+            "payment_confirmed": (
+                "Payment confirmed",
+                (
+                    f"Payment {payment_label} for order {order_label} "
+                    f"was confirmed for {amount_label}."
+                ),
+            ),
+            "payment_failed": (
+                "Payment failed",
+                f"Payment {payment_label} for order {order_label} failed: {reason_label}.",
+            ),
+            "payment_refunded": (
+                "Payment refunded",
+                f"Payment {payment_label} for order {order_label} was refunded: {reason_label}.",
             ),
         }
         return messages.get(event_type, (None, None))

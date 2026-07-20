@@ -70,6 +70,15 @@ make test-e2e-gateway
 That target starts test PostgreSQL and Kafka, launches services locally, runs a
 real gateway-driven scenario, and tears the infrastructure down automatically.
 
+For cross-service event payload compatibility only:
+
+```bash
+make test-kafka-contracts
+```
+
+That target runs contract checks from `tests/contracts/test_kafka_contracts.py`
+against real producer and consumer code paths with isolated PostgreSQL schemas.
+
 ## Event Flow
 
 Core happy-path flow:
@@ -86,6 +95,7 @@ When changing event payloads, update:
 - producer tests
 - consumer tests
 - cross-service chain tests
+- cross-service contract tests
 - affected README contract text
 
 ## Auth Model

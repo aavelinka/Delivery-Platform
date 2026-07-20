@@ -6,10 +6,11 @@ It subscribes to:
 
 - `orders.events`
 - `couriers.events`
+- `payments.events`
 
 ## Responsibilities
 
-- Create notifications from system events.
+- Create notifications from order, courier and payment events.
 - Store notification history.
 - Mark notifications as read.
 - Expose notifications by user.

@@ -13,7 +13,7 @@ PAYMENT_SERVICE_HOST_PORT ?= 8007
 SERVICES := api-gateway auth-service user-service order-service courier-service tracking-service notification-service admin-service payment-service
 POSTGRES_TEST_SERVICES := auth-service user-service order-service courier-service tracking-service notification-service payment-service
 
-.PHONY: bootstrap install test-postgres-up test-postgres-down test-kafka-up test-kafka-down test-e2e-gateway lint mypy test-api-gateway test-admin-service test-payment-service test-services-postgres test smoke-service-composes
+.PHONY: bootstrap install test-postgres-up test-postgres-down test-kafka-up test-kafka-down test-e2e-gateway lint mypy test-api-gateway test-admin-service test-payment-service test-kafka-contracts test-services-postgres test smoke-service-composes
 
 bootstrap:
 	python -m venv .venv
@@ -69,13 +69,16 @@ test-admin-service:
 test-payment-service:
 	(cd services/payment-service && ../../$(PYTHON) -m pytest -q)
 
+test-kafka-contracts:
+	($(PYTHON) -m pytest -q tests/contracts/test_kafka_contracts.py)
+
 test-services-postgres:
 	for service in $(POSTGRES_TEST_SERVICES); do \
 		printf '\n==> pytest %s\n' "$$service"; \
 		(cd services/$$service && ../../$(PYTHON) -m pytest -q) || exit 1; \
 	done
 
-test: test-api-gateway test-admin-service test-services-postgres
+test: test-api-gateway test-admin-service test-services-postgres test-kafka-contracts
 
 smoke-service-composes:
 	./scripts/smoke-service-compose.sh auth-service $(AUTH_SERVICE_HOST_PORT) smoke-auth-service

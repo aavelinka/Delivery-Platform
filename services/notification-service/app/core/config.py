@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     kafka_bootstrap_servers: str = "localhost:29092"
     kafka_client_id: str = "notification-service"
     kafka_group_id: str = "notification-service"
-    kafka_topics: list[str] = Field(default_factory=lambda: ["orders.events", "couriers.events"])
+    kafka_topics: list[str] = Field(
+        default_factory=lambda: ["orders.events", "couriers.events", "payments.events"]
+    )
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"

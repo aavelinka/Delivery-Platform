@@ -80,6 +80,15 @@ SERVICE_DATABASES = {
             "NOTIFICATION_CORS_ORIGINS": '["*"]',
         },
     },
+    "payment-service": {
+        "database_env_var": "PAYMENT_DATABASE_URL",
+        "database_url": "postgresql+psycopg://postgres:postgres@localhost:5439/payments_test",
+        "extra_env": {
+            "PAYMENT_JWT_SECRET_KEY": TEST_SECRET,
+            "PAYMENT_GATEWAY_INTERNAL_SECRET": TEST_GATEWAY_SECRET,
+            "PAYMENT_CORS_ORIGINS": '["*"]',
+        },
+    },
 }
 
 BOOTSTRAP_SCRIPT = """
@@ -186,6 +195,7 @@ def _service_env(
                 "GATEWAY_NOTIFICATION_SERVICE_URL": (
                     f"http://127.0.0.1:{ports['notification-service']}"
                 ),
+                "GATEWAY_PAYMENT_SERVICE_URL": f"http://127.0.0.1:{ports['payment-service']}",
                 "GATEWAY_RATE_LIMIT_REQUESTS": "1000",
                 "GATEWAY_REQUEST_TIMEOUT_SECONDS": "5",
                 "GATEWAY_RETRY_ATTEMPTS": "2",
@@ -200,6 +210,7 @@ def _service_env(
 
     kafka_orders_topic = f"orders.e2e.{topic_suffix}"
     kafka_couriers_topic = f"couriers.e2e.{topic_suffix}"
+    kafka_payments_topic = f"payments.e2e.{topic_suffix}"
 
     if service_name == "auth-service":
         return env
@@ -254,8 +265,19 @@ def _service_env(
                 "NOTIFICATION_KAFKA_CLIENT_ID": f"notification-service-e2e-{topic_suffix}",
                 "NOTIFICATION_KAFKA_GROUP_ID": f"notification-service-e2e-{topic_suffix}",
                 "NOTIFICATION_KAFKA_TOPICS": json.dumps(
-                    [kafka_orders_topic, kafka_couriers_topic]
+                    [kafka_orders_topic, kafka_couriers_topic, kafka_payments_topic]
                 ),
+            }
+        )
+        return env
+
+    if service_name == "payment-service":
+        env.update(
+            {
+                "PAYMENT_KAFKA_ENABLED": "true",
+                "PAYMENT_KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:29092",
+                "PAYMENT_KAFKA_CLIENT_ID": f"payment-service-e2e-{topic_suffix}",
+                "PAYMENT_KAFKA_PAYMENTS_TOPIC": kafka_payments_topic,
             }
         )
         return env
@@ -399,6 +421,7 @@ def _running_platform_client():
         "courier-service": _free_port(),
         "tracking-service": _free_port(),
         "notification-service": _free_port(),
+        "payment-service": _free_port(),
         "api-gateway": _free_port(),
     }
 
@@ -413,6 +436,7 @@ def _running_platform_client():
                 "courier-service",
                 "tracking-service",
                 "notification-service",
+                "payment-service",
                 "api-gateway",
             ):
                 running_services.append(
@@ -516,6 +540,7 @@ def _bootstrap_customer_and_online_courier(client: httpx.Client) -> dict[str, ob
     assert set_online.json()["availability"] == "online"
 
     return {
+        "admin_headers": admin_headers,
         "courier": courier,
         "courier_headers": courier_headers,
         "courier_user": courier_user,
@@ -528,6 +553,7 @@ def test_gateway_platform_flow_end_to_end():
     with _running_platform_client() as client:
         platform = _bootstrap_customer_and_online_courier(client)
         courier = platform["courier"]
+        admin_headers = platform["admin_headers"]
         courier_headers = platform["courier_headers"]
         courier_user = platform["courier_user"]
         customer_headers = platform["customer_headers"]
@@ -581,6 +607,44 @@ def test_gateway_platform_flow_end_to_end():
         assert create_order.status_code == 201
         order = create_order.json()
         order_id = order["id"]
+
+        create_payment = client.post(
+            "/payments",
+            json={
+                "user_id": customer_user["id"],
+                "order_id": order_id,
+                "amount": "149.90",
+                "currency": "USD",
+                "payment_method": "card",
+                "description": "Gateway e2e order payment",
+            },
+            headers=customer_headers,
+        )
+        assert create_payment.status_code == 201
+        payment = create_payment.json()
+        payment_id = payment["id"]
+        assert payment["status"] == "pending"
+
+        get_payment = client.get(
+            f"/payments/{payment_id}",
+            headers=customer_headers,
+        )
+        assert get_payment.status_code == 200
+        assert get_payment.json()["order_id"] == order_id
+
+        customer_payments = client.get("/payments", headers=customer_headers)
+        assert customer_payments.status_code == 200
+        assert customer_payments.json()["total"] == 1
+        assert customer_payments.json()["items"][0]["id"] == payment_id
+
+        confirm_payment = client.post(
+            f"/payments/{payment_id}/confirm",
+            json={"provider_reference": "psp-e2e-1", "changed_by": "admin"},
+            headers=admin_headers,
+        )
+        assert confirm_payment.status_code == 200
+        assert confirm_payment.json()["status"] == "confirmed"
+        assert confirm_payment.json()["provider_reference"] == "psp-e2e-1"
 
         assigned_order = _wait_until(
             "order assignment",
@@ -722,6 +786,14 @@ def test_gateway_platform_flow_end_to_end():
                 client,
                 user_id=customer_user["id"],
                 headers=customer_headers,
+                expected_titles={
+                    "Order created",
+                    "Courier assigned",
+                    "Delivery started",
+                    "Delivery completed",
+                    "Payment created",
+                    "Payment confirmed",
+                },
             ),
             timeout=90.0,
         )
@@ -731,6 +803,8 @@ def test_gateway_platform_flow_end_to_end():
             "Courier assigned",
             "Delivery started",
             "Delivery completed",
+            "Payment created",
+            "Payment confirmed",
         }.issubset(titles)
 
         first_notification_id = customer_notifications["items"][0]["id"]
@@ -764,6 +838,17 @@ def test_gateway_platform_flow_end_to_end():
             "courier_assigned",
             "delivery_started",
             "delivery_completed",
+        ]
+
+        payment_events = client.get(
+            f"/payments/{payment_id}/events",
+            headers=customer_headers,
+        )
+        assert payment_events.status_code == 200
+        payment_event_types = [item["event_type"] for item in payment_events.json()]
+        assert payment_event_types == [
+            "payment_created",
+            "payment_confirmed",
         ]
 
 
