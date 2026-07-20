@@ -5,6 +5,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+COPY libs/platform-common ./libs/platform-common
+RUN pip install --no-cache-dir ./libs/platform-common
+
 COPY services/api-gateway/pyproject.toml .
 COPY services/api-gateway/app ./app
 

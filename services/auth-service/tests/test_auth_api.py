@@ -4,6 +4,25 @@ from app.core.config import get_settings
 from app.main import app
 
 
+def test_health(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    assert response.headers["x-request-id"]
+
+
+def test_metrics(client):
+    health_response = client.get("/health")
+    assert health_response.status_code == 200
+
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert "http_requests_total" in response.text
+    assert 'service="auth-service"' in response.text
+    assert 'path="/health"' in response.text
+
+
 def test_register_login_me_refresh_and_logout(client):
     register_response = client.post(
         "/auth/register",

@@ -12,7 +12,7 @@ bootstrap:
 	$(PYTHON) -m pip install --upgrade pip setuptools wheel
 
 install:
-	$(PYTHON) -m pip install -e libs/platform-common
+	$(PYTHON) -m pip install ./libs/platform-common
 	$(PYTHON) -m pip install \
 		-e "services/api-gateway[dev]" \
 		-e "services/auth-service[dev]" \

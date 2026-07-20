@@ -1,11 +1,15 @@
 import asyncio
 import time
-import uuid
 from collections import defaultdict, deque
 from collections.abc import Mapping
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response, status
+from platform_common.observability import (
+    configure_logging,
+    get_request_id,
+    install_request_observability,
+)
 
 from app.auth import CurrentUser, decode_access_token
 from app.config import Settings, get_settings
@@ -37,8 +41,10 @@ RATE_LIMIT_BUCKETS: dict[str, deque[float]] = defaultdict(deque)
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     settings = get_settings()
     app = FastAPI(title=settings.service_name, version="0.1.0")
+    install_request_observability(app, settings.service_name)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -194,8 +200,7 @@ def _should_retry(method: str, status_code: int, attempt: int, attempts: int) ->
 
 
 def _request_id(request: Request) -> str:
-    incoming_request_id = request.headers.get("x-request-id")
-    return incoming_request_id if incoming_request_id else str(uuid.uuid4())
+    return get_request_id(request)
 
 
 def _rate_limit_key(request: Request) -> str:

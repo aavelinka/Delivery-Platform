@@ -5,6 +5,9 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+COPY libs/platform-common ./libs/platform-common
+RUN pip install --no-cache-dir ./libs/platform-common
+
 COPY services/auth-service/pyproject.toml .
 COPY services/auth-service/app ./app
 COPY services/auth-service/alembic ./alembic

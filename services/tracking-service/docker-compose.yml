@@ -18,13 +18,19 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD-SHELL", "cub zk-ready localhost:2181 30"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
     ports:
       - "2184:2181"
 
   kafka:
     image: confluentinc/cp-kafka:7.9.0
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
@@ -33,6 +39,11 @@ services:
       KAFKA_BROKER_ID: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "cub kafka-ready -b localhost:9092 1 30"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
     ports:
       - "9095:9092"
 
@@ -45,7 +56,7 @@ services:
       postgres:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     environment:
       TRACKING_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/tracking
       TRACKING_KAFKA_ENABLED: "true"

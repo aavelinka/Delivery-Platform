@@ -10,6 +10,7 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.headers["x-request-id"]
 
 
 def test_create_get_and_list_order(client, auth_headers):

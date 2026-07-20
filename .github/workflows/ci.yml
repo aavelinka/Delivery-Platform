@@ -112,7 +112,7 @@ jobs:
         run: python -m pip install --upgrade pip setuptools wheel
 
       - name: Install common package
-        run: python -m pip install -e libs/platform-common
+        run: python -m pip install ./libs/platform-common
 
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}

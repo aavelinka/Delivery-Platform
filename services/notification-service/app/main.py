@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from platform_common.observability import configure_logging, install_request_observability
 
 from app.api.routes import router
 from app.core.config import get_settings
@@ -28,8 +29,10 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     settings = get_settings()
     app = FastAPI(title=settings.service_name, version="0.1.0", lifespan=lifespan)
+    install_request_observability(app, settings.service_name)
 
     app.add_middleware(
         CORSMiddleware,

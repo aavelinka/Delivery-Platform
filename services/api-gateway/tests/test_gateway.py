@@ -1,6 +1,8 @@
 import uuid
 
+import httpx
 from fastapi import HTTPException, Request
+from fastapi.testclient import TestClient
 
 from app.auth import decode_access_token
 from app.config import get_settings
@@ -12,6 +14,7 @@ from app.main import (
     _request_id,
     _target_base_url,
     _target_url,
+    create_app,
 )
 
 
@@ -140,3 +143,40 @@ def test_rate_limit_blocks_after_limit():
         settings.rate_limit_requests = old_rate_limit_requests
         settings.rate_limit_window_seconds = old_rate_limit_window_seconds
         RATE_LIMIT_BUCKETS.clear()
+
+
+def test_gateway_returns_request_id_header(monkeypatch, token_factory):
+    async def fake_send_with_retries(**kwargs):
+        return httpx.Response(
+            200,
+            json={"status": "ok"},
+            headers={"content-type": "application/json"},
+            request=httpx.Request(kwargs["method"], kwargs["target_url"]),
+        )
+
+    monkeypatch.setattr("app.main._send_with_retries", fake_send_with_retries)
+
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/orders",
+            headers={
+                "authorization": f"Bearer {token_factory(uuid.uuid4())}",
+                "x-request-id": "gateway-request-id",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["x-request-id"] == "gateway-request-id"
+
+
+def test_metrics_endpoint_exposes_http_metrics():
+    with TestClient(create_app()) as client:
+        health_response = client.get("/health")
+        assert health_response.status_code == 200
+
+        metrics_response = client.get("/metrics")
+
+    assert metrics_response.status_code == 200
+    assert "http_requests_total" in metrics_response.text
+    assert 'service="api-gateway"' in metrics_response.text
+    assert 'path="/health"' in metrics_response.text

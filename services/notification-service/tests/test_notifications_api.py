@@ -7,6 +7,7 @@ def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert response.headers["x-request-id"]
 
 
 def test_create_get_list_and_read_notification(client, auth_headers):
