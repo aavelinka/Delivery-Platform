@@ -3,7 +3,12 @@ from platform_common.observability import get_request_id
 
 from app.core.auth import CurrentUser, UserRole, require_roles
 from app.core.config import Settings, get_settings
-from app.schemas.admin import AdminAnalyticsRead, AdminOverviewRead, AdminServiceHealthRead
+from app.schemas.admin import (
+    AdminAnalyticsRead,
+    AdminKafkaReliabilityRead,
+    AdminOverviewRead,
+    AdminServiceHealthRead,
+)
 from app.services.admin_service import AdminService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -41,3 +46,13 @@ async def get_analytics(
 ) -> AdminAnalyticsRead:
     analytics = await service.get_analytics(current_user, get_request_id(request))
     return AdminAnalyticsRead.model_validate(analytics)
+
+
+@router.get("/kafka/reliability", response_model=AdminKafkaReliabilityRead)
+async def get_kafka_reliability(
+    request: Request,
+    current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+    service: AdminService = Depends(get_admin_service),
+) -> AdminKafkaReliabilityRead:
+    reliability = await service.get_kafka_reliability(current_user, get_request_id(request))
+    return AdminKafkaReliabilityRead.model_validate(reliability)

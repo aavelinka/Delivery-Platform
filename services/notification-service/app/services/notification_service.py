@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import Notification
 from app.domain.enums import NotificationChannel, NotificationStatus
 from app.schemas.notifications import NotificationCreate
@@ -117,6 +118,18 @@ class NotificationService:
             "unread_notifications": total_notifications - read_notifications,
             "notifications_by_status": notifications_by_status,
             "notifications_by_channel": notifications_by_channel,
+        }
+
+    @staticmethod
+    def get_kafka_reliability() -> dict[str, bool | str | int | float | list[str]]:
+        settings = get_settings()
+        return {
+            "consumer_enabled": settings.kafka_enabled,
+            "consumer_group": settings.kafka_group_id,
+            "source_topics": list(settings.kafka_topics),
+            "dlq_topic": settings.kafka_consumer_dlq_topic,
+            "max_retries": settings.kafka_consumer_max_retries,
+            "retry_backoff_seconds": settings.kafka_consumer_retry_backoff_seconds,
         }
 
     def mark_as_read(self, notification_id: uuid.UUID) -> Notification:

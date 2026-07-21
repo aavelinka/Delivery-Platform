@@ -18,6 +18,7 @@ from app.schemas.orders import (
     OrderCancel,
     OrderCreate,
     OrderEventRead,
+    OrderKafkaReliabilityRead,
     OrderListResponse,
     OrderRead,
     OrderStatusUpdate,
@@ -37,6 +38,14 @@ def admin_summary(
     _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
 ) -> OrderAdminSummary:
     return OrderAdminSummary.model_validate(service.get_admin_summary())
+
+
+@router.get("/admin/kafka/reliability", response_model=OrderKafkaReliabilityRead)
+def admin_kafka_reliability(
+    service: OrderService = Depends(get_order_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> OrderKafkaReliabilityRead:
+    return OrderKafkaReliabilityRead.model_validate(service.get_kafka_reliability())
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)

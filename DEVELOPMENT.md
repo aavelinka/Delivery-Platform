@@ -54,6 +54,24 @@ through:
 <SERVICE>_KAFKA_CONSUMER_DLQ_TOPIC
 ```
 
+For the current Kafka consumer posture across services, query:
+
+```bash
+curl -H "Authorization: Bearer <admin-token>" \
+  http://localhost:8080/admin/kafka/reliability
+```
+
+For local DLQ inspection and replay:
+
+```bash
+python scripts/kafka-dlq-tool.py peek --topic order-service.dlq --limit 5
+python scripts/kafka-dlq-tool.py replay \
+  --event-file /tmp/order-dlq-event.json \
+  --replayed-by local-operator \
+  --reason "fixed downstream bug" \
+  --dry-run
+```
+
 ### Single service
 
 Each implemented service has its own `docker-compose.yml` under `services/<name>/`.
@@ -106,8 +124,9 @@ For `platform-common` tracing and observability only:
 make test-platform-common
 ```
 
-That target covers the shared tracing context, telemetry bridge, and graceful
-fallback behavior when the OpenTelemetry SDK is unavailable locally.
+That target covers the shared tracing context, telemetry bridge, DLQ replay
+helpers, consumer retry/DLQ behavior, and graceful fallback behavior when the
+OpenTelemetry SDK is unavailable locally.
 
 ## Event Flow
 

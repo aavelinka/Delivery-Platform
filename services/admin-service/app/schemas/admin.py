@@ -144,3 +144,18 @@ class AdminAnalyticsRead(BaseModel):
     financials: AdminFinancialsRead
     conversion: AdminConversionRead
     alerts: list[AdminAlertRead]
+
+
+class KafkaReliabilityEntryRead(BaseModel):
+    service: str
+    consumer_enabled: bool
+    consumer_group: str
+    source_topics: list[str]
+    dlq_topic: str
+    max_retries: int
+    retry_backoff_seconds: float
+
+
+class AdminKafkaReliabilityRead(BaseModel):
+    generated_at: datetime
+    services: list[KafkaReliabilityEntryRead]

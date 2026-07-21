@@ -256,3 +256,18 @@ def test_admin_summary_returns_courier_and_assignment_counts(client, auth_header
     assert payload["active_couriers"] == 1
     assert payload["couriers_by_availability"]["busy"] == 1
     assert payload["assignments_by_status"]["assigned"] == 1
+
+
+def test_admin_kafka_reliability_returns_consumer_settings(client, auth_headers):
+    response = client.get(
+        "/couriers/admin/kafka/reliability",
+        headers=auth_headers(role="admin"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["consumer_enabled"] is False
+    assert payload["consumer_group"] == "courier-service"
+    assert payload["source_topics"] == ["orders.events"]
+    assert payload["dlq_topic"] == "courier-service.dlq"
+    assert payload["max_retries"] == 3

@@ -153,6 +153,18 @@ class OrderService:
             "orders_by_status": orders_by_status,
         }
 
+    @staticmethod
+    def get_kafka_reliability() -> dict[str, bool | str | int | float | list[str]]:
+        settings = get_settings()
+        return {
+            "consumer_enabled": settings.kafka_enabled,
+            "consumer_group": settings.kafka_group_id,
+            "source_topics": [settings.kafka_couriers_topic],
+            "dlq_topic": settings.kafka_consumer_dlq_topic,
+            "max_retries": settings.kafka_consumer_max_retries,
+            "retry_backoff_seconds": settings.kafka_consumer_retry_backoff_seconds,
+        }
+
     def change_status(
         self,
         order_id: uuid.UUID,

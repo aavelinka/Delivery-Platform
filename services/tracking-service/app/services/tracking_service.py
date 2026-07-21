@@ -147,6 +147,18 @@ class TrackingService:
             "location_updates_last_24h": location_updates_last_24h,
         }
 
+    @staticmethod
+    def get_kafka_reliability() -> dict[str, bool | str | int | float | list[str]]:
+        settings = get_settings()
+        return {
+            "consumer_enabled": settings.kafka_enabled,
+            "consumer_group": settings.kafka_group_id,
+            "source_topics": [settings.kafka_orders_topic],
+            "dlq_topic": settings.kafka_consumer_dlq_topic,
+            "max_retries": settings.kafka_consumer_max_retries,
+            "retry_backoff_seconds": settings.kafka_consumer_retry_backoff_seconds,
+        }
+
     def get_tracked_order(self, order_id: uuid.UUID | None) -> TrackedOrder | None:
         if order_id is None:
             return None

@@ -11,6 +11,7 @@ high-level platform analytics from those summaries.
 - `GET /admin/overview`
 - `GET /admin/services/health`
 - `GET /admin/analytics`
+- `GET /admin/kafka/reliability`
 
 ## Local Run
 

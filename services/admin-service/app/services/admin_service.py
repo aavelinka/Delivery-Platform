@@ -69,6 +69,27 @@ class AdminService:
             "alerts": self._build_alerts(snapshot.service_health, snapshot.summaries),
         }
 
+    async def get_kafka_reliability(
+        self,
+        current_user: CurrentUser,
+        request_id: str,
+    ) -> dict[str, Any]:
+        headers = self._internal_headers(current_user, request_id)
+        services = self._kafka_reliability_services()
+
+        async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds) as client:
+            results = await asyncio.gather(
+                *(self._fetch_summary(client, service, headers) for service in services)
+            )
+
+        return {
+            "generated_at": datetime.now(UTC),
+            "services": [
+                {"service": name, **payload}
+                for name, payload in results
+            ],
+        }
+
     def _downstream_services(self) -> tuple[DownstreamService, ...]:
         return (
             DownstreamService(
@@ -105,6 +126,30 @@ class AdminService:
                 "payment-service",
                 self.settings.payment_service_url,
                 "/payments/admin/summary",
+            ),
+        )
+
+    def _kafka_reliability_services(self) -> tuple[DownstreamService, ...]:
+        return (
+            DownstreamService(
+                "order-service",
+                self.settings.order_service_url,
+                "/orders/admin/kafka/reliability",
+            ),
+            DownstreamService(
+                "courier-service",
+                self.settings.courier_service_url,
+                "/couriers/admin/kafka/reliability",
+            ),
+            DownstreamService(
+                "tracking-service",
+                self.settings.tracking_service_url,
+                "/tracking/admin/kafka/reliability",
+            ),
+            DownstreamService(
+                "notification-service",
+                self.settings.notification_service_url,
+                "/notifications/admin/kafka/reliability",
             ),
         )
 

@@ -20,6 +20,7 @@ from app.schemas.couriers import (
     CourierAdminSummary,
     CourierAvailabilityUpdate,
     CourierCreate,
+    CourierKafkaReliabilityRead,
     CourierListResponse,
     CourierRead,
     CourierUpdate,
@@ -39,6 +40,14 @@ def admin_summary(
     _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
 ) -> CourierAdminSummary:
     return CourierAdminSummary.model_validate(service.get_admin_summary())
+
+
+@router.get("/admin/kafka/reliability", response_model=CourierKafkaReliabilityRead)
+def admin_kafka_reliability(
+    service: CourierService = Depends(get_courier_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> CourierKafkaReliabilityRead:
+    return CourierKafkaReliabilityRead.model_validate(service.get_kafka_reliability())
 
 
 @router.post("", response_model=CourierRead, status_code=status.HTTP_201_CREATED)

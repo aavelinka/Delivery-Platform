@@ -34,3 +34,12 @@ class TrackingAdminSummary(BaseModel):
     tracked_orders_with_courier: int
     location_updates_total: int
     location_updates_last_24h: int
+
+
+class TrackingKafkaReliabilityRead(BaseModel):
+    consumer_enabled: bool
+    consumer_group: str
+    source_topics: list[str]
+    dlq_topic: str
+    max_retries: int
+    retry_backoff_seconds: float

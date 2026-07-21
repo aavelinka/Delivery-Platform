@@ -222,3 +222,18 @@ def test_admin_summary_returns_tracking_counts(client, auth_headers, db_session)
     assert payload["tracked_orders_with_courier"] == 1
     assert payload["location_updates_total"] == 1
     assert payload["location_updates_last_24h"] == 1
+
+
+def test_admin_kafka_reliability_returns_consumer_settings(client, auth_headers):
+    response = client.get(
+        "/tracking/admin/kafka/reliability",
+        headers=auth_headers(role="admin"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["consumer_enabled"] is False
+    assert payload["consumer_group"] == "tracking-service"
+    assert payload["source_topics"] == ["orders.events"]
+    assert payload["dlq_topic"] == "tracking-service.dlq"
+    assert payload["max_retries"] == 3

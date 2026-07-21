@@ -326,3 +326,15 @@ def test_admin_summary_returns_order_counts(client, auth_headers):
     assert payload["cancelled_orders"] == 1
     assert payload["orders_by_status"]["created"] == 1
     assert payload["orders_by_status"]["cancelled"] == 1
+
+
+def test_admin_kafka_reliability_returns_consumer_settings(client, auth_headers):
+    response = client.get("/orders/admin/kafka/reliability", headers=auth_headers(role="admin"))
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["consumer_enabled"] is False
+    assert payload["consumer_group"] == "order-service"
+    assert payload["source_topics"] == ["couriers.events"]
+    assert payload["dlq_topic"] == "order-service.dlq"
+    assert payload["max_retries"] == 3

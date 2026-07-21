@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 from app.core.auth import CurrentUser, UserRole, get_current_user, require_roles
 from app.db.models import CourierLocation
 from app.db.session import get_db
-from app.schemas.tracking import LocationCreate, LocationRead, TrackingAdminSummary
+from app.schemas.tracking import (
+    LocationCreate,
+    LocationRead,
+    TrackingAdminSummary,
+    TrackingKafkaReliabilityRead,
+)
 from app.services.tracking_service import TrackingService
 
 router = APIRouter(prefix="/tracking", tags=["tracking"])
@@ -22,6 +27,14 @@ def admin_summary(
     _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
 ) -> TrackingAdminSummary:
     return TrackingAdminSummary.model_validate(service.get_admin_summary())
+
+
+@router.get("/admin/kafka/reliability", response_model=TrackingKafkaReliabilityRead)
+def admin_kafka_reliability(
+    service: TrackingService = Depends(get_tracking_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> TrackingKafkaReliabilityRead:
+    return TrackingKafkaReliabilityRead.model_validate(service.get_kafka_reliability())
 
 
 def ensure_location_access(current_user: CurrentUser, location: CourierLocation) -> None:

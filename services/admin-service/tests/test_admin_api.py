@@ -163,6 +163,33 @@ class FakeAdminService:
             ],
         }
 
+    async def get_kafka_reliability(self, current_user: CurrentUser, request_id: str):
+        assert current_user.role == UserRole.ADMIN
+        assert request_id
+        return {
+            "generated_at": datetime.now(UTC),
+            "services": [
+                {
+                    "service": "order-service",
+                    "consumer_enabled": True,
+                    "consumer_group": "order-service",
+                    "source_topics": ["couriers.events"],
+                    "dlq_topic": "order-service.dlq",
+                    "max_retries": 3,
+                    "retry_backoff_seconds": 1.0,
+                },
+                {
+                    "service": "notification-service",
+                    "consumer_enabled": True,
+                    "consumer_group": "notification-service",
+                    "source_topics": ["orders.events", "couriers.events", "payments.events"],
+                    "dlq_topic": "notification-service.dlq",
+                    "max_retries": 3,
+                    "retry_backoff_seconds": 1.0,
+                },
+            ],
+        }
+
 
 def test_health_endpoint():
     with TestClient(create_app()) as client:
@@ -249,6 +276,31 @@ def test_admin_analytics_returns_business_metrics(token_factory):
     assert payload["activity"]["orders_without_courier"] == 4
     assert payload["conversion"]["payment_confirmation_pct"] == 50.0
     assert payload["alerts"][0]["code"] == "orders_waiting_courier"
+
+
+def test_admin_kafka_reliability_returns_aggregated_consumer_config(token_factory):
+    app = create_app()
+    app.dependency_overrides[get_admin_service] = lambda: FakeAdminService()
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/admin/kafka/reliability",
+                headers={"Authorization": f"Bearer {token_factory(uuid.uuid4(), 'admin')}"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["services"]) == 2
+    assert payload["services"][0]["service"] == "order-service"
+    assert payload["services"][0]["dlq_topic"] == "order-service.dlq"
+    assert payload["services"][1]["source_topics"] == [
+        "orders.events",
+        "couriers.events",
+        "payments.events",
+    ]
 
 
 @pytest.mark.asyncio
@@ -436,3 +488,59 @@ async def test_admin_service_analytics_derives_business_metrics(monkeypatch):
     assert "tracking_gap" in alert_codes
     assert "payment_failures_high" in alert_codes
     assert "notifications_unread_backlog" in alert_codes
+
+
+@pytest.mark.asyncio
+async def test_admin_service_kafka_reliability_aggregates_consumer_config(monkeypatch):
+    service = AdminService(get_settings())
+    current_user = CurrentUser(
+        id=uuid.uuid4(),
+        email="admin@example.com",
+        role=UserRole.ADMIN,
+    )
+
+    async def fake_fetch_summary(_client, downstream_service, _headers):
+        payloads = {
+            "order-service": {
+                "consumer_enabled": True,
+                "consumer_group": "order-service",
+                "source_topics": ["couriers.events"],
+                "dlq_topic": "order-service.dlq",
+                "max_retries": 3,
+                "retry_backoff_seconds": 1.0,
+            },
+            "courier-service": {
+                "consumer_enabled": True,
+                "consumer_group": "courier-service",
+                "source_topics": ["orders.events"],
+                "dlq_topic": "courier-service.dlq",
+                "max_retries": 3,
+                "retry_backoff_seconds": 1.0,
+            },
+            "tracking-service": {
+                "consumer_enabled": True,
+                "consumer_group": "tracking-service",
+                "source_topics": ["orders.events"],
+                "dlq_topic": "tracking-service.dlq",
+                "max_retries": 3,
+                "retry_backoff_seconds": 1.0,
+            },
+            "notification-service": {
+                "consumer_enabled": True,
+                "consumer_group": "notification-service",
+                "source_topics": ["orders.events", "couriers.events", "payments.events"],
+                "dlq_topic": "notification-service.dlq",
+                "max_retries": 3,
+                "retry_backoff_seconds": 1.0,
+            },
+        }
+        return downstream_service.name, payloads[downstream_service.name]
+
+    monkeypatch.setattr(service, "_fetch_summary", fake_fetch_summary)
+
+    reliability = await service.get_kafka_reliability(current_user, "request-3")
+
+    assert len(reliability["services"]) == 4
+    assert reliability["services"][0]["service"] == "order-service"
+    assert reliability["services"][0]["source_topics"] == ["couriers.events"]
+    assert reliability["services"][3]["dlq_topic"] == "notification-service.dlq"

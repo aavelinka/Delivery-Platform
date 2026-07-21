@@ -69,3 +69,12 @@ class OrderAdminSummary(BaseModel):
     completed_orders: int
     cancelled_orders: int
     orders_by_status: dict[str, int]
+
+
+class OrderKafkaReliabilityRead(BaseModel):
+    consumer_enabled: bool
+    consumer_group: str
+    source_topics: list[str]
+    dlq_topic: str
+    max_retries: int
+    retry_backoff_seconds: float

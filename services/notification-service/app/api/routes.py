@@ -14,6 +14,7 @@ from app.db.session import get_db
 from app.schemas.notifications import (
     NotificationAdminSummary,
     NotificationCreate,
+    NotificationKafkaReliabilityRead,
     NotificationListResponse,
     NotificationRead,
 )
@@ -32,6 +33,14 @@ def admin_summary(
     _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
 ) -> NotificationAdminSummary:
     return NotificationAdminSummary.model_validate(service.get_admin_summary())
+
+
+@router.get("/admin/kafka/reliability", response_model=NotificationKafkaReliabilityRead)
+def admin_kafka_reliability(
+    service: NotificationService = Depends(get_notification_service),
+    _current_user: CurrentUser = Depends(require_roles(UserRole.ADMIN)),
+) -> NotificationKafkaReliabilityRead:
+    return NotificationKafkaReliabilityRead.model_validate(service.get_kafka_reliability())
 
 
 @router.post("", response_model=NotificationRead, status_code=status.HTTP_201_CREATED)
