@@ -33,8 +33,24 @@ reached through the gateway in normal external flows. `payment-service` should
 also be reached through `api-gateway` in the full stack rather than by calling
 its container directly.
 
-Optional OpenTelemetry trace export can be enabled for either root compose or
-standalone service compose runs with:
+For the full local observability stack around the same runtime, use:
+
+```bash
+make observability-up
+```
+
+That command runs the root stack through `docker-compose.observability.yml`,
+enables OTLP export automatically, and provisions:
+
+- `otel-collector`
+- `Prometheus`
+- `Jaeger`
+- `Grafana`
+
+Use `make observability-down` to stop that full-stack mode.
+
+Optional OpenTelemetry trace export can still be enabled for either root compose
+without the observability override or standalone service compose runs with:
 
 ```bash
 OTEL_ENABLED=true
@@ -43,6 +59,20 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318/v1/traces
 
 If `OTEL_ENABLED=true` is set without an OTLP endpoint, services fall back to
 the console span exporter.
+
+Default local UIs for the observability mode:
+
+- Grafana: `http://localhost:3000`
+- Jaeger: `http://localhost:16686`
+- Prometheus: `http://localhost:9090`
+
+Grafana is provisioned with:
+
+- `Delivery Platform Overview`
+- `Delivery Platform Business`
+
+For password reset and a short smoke/demo flow, see
+`observability/RUNBOOK.md`.
 
 Kafka consumers in `order-service`, `courier-service`, `tracking-service`, and
 `notification-service` also support bounded retries and service-level DLQ topics

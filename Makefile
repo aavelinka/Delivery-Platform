@@ -10,10 +10,16 @@ USER_SERVICE_HOST_PORT ?= 8004
 TRACKING_SERVICE_HOST_PORT ?= 8005
 ADMIN_SERVICE_HOST_PORT ?= 8006
 PAYMENT_SERVICE_HOST_PORT ?= 8007
+OTEL_COLLECTOR_OTLP_GRPC_HOST_PORT ?= 4317
+OTEL_COLLECTOR_OTLP_HTTP_HOST_PORT ?= 4318
+PROMETHEUS_HOST_PORT ?= 9090
+GRAFANA_HOST_PORT ?= 3000
+JAEGER_UI_HOST_PORT ?= 16686
 SERVICES := api-gateway auth-service user-service order-service courier-service tracking-service notification-service admin-service payment-service
 POSTGRES_TEST_SERVICES := auth-service user-service order-service courier-service tracking-service notification-service payment-service
+OBSERVABILITY_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.observability.yml
 
-.PHONY: bootstrap install test-postgres-up test-postgres-down test-kafka-up test-kafka-down test-e2e-gateway lint mypy test-api-gateway test-admin-service test-payment-service test-platform-common test-kafka-contracts test-services-postgres test smoke-service-composes
+.PHONY: bootstrap install test-postgres-up test-postgres-down test-kafka-up test-kafka-down test-e2e-gateway lint mypy test-api-gateway test-admin-service test-payment-service test-platform-common test-kafka-contracts test-services-postgres test smoke-service-composes observability-up observability-down observability-config
 
 bootstrap:
 	python -m venv .venv
@@ -93,3 +99,20 @@ smoke-service-composes:
 	./scripts/smoke-service-compose.sh admin-service $(ADMIN_SERVICE_HOST_PORT) smoke-admin-service
 	./scripts/smoke-service-compose.sh payment-service $(PAYMENT_SERVICE_HOST_PORT) smoke-payment-service
 	./scripts/smoke-service-compose.sh api-gateway $(API_GATEWAY_HOST_PORT) smoke-api-gateway
+
+observability-up:
+	OTEL_ENABLED=true \
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces \
+	OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces \
+	$(OBSERVABILITY_COMPOSE) up -d --build
+
+observability-down:
+	$(OBSERVABILITY_COMPOSE) down
+
+observability-config:
+	JWT_SECRET_KEY=test-secret \
+	GATEWAY_INTERNAL_SECRET=test-gateway-secret \
+	OTEL_ENABLED=true \
+	OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces \
+	OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces \
+	$(OBSERVABILITY_COMPOSE) config >/dev/null

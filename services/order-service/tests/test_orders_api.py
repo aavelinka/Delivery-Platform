@@ -13,6 +13,28 @@ def test_health(client):
     assert response.headers["x-request-id"]
 
 
+def test_metrics_expose_order_domain_counts(client, auth_headers):
+    user_id = str(uuid.uuid4())
+    response = client.post(
+        "/orders",
+        json={
+            "user_id": user_id,
+            "pickup_address": "Warehouse A",
+            "delivery_address": "Main street 12",
+            "total_price": "149.90",
+        },
+        headers=auth_headers(user_id, "customer"),
+    )
+    assert response.status_code == 201
+
+    metrics_response = client.get("/metrics")
+
+    assert metrics_response.status_code == 200
+    assert "delivery_orders_total 1.0" in metrics_response.text
+    assert "delivery_orders_with_courier_total 0.0" in metrics_response.text
+    assert 'delivery_orders_by_status{status="created"} 1.0' in metrics_response.text
+
+
 def test_create_get_and_list_order(client, auth_headers):
     user_id = str(uuid.uuid4())
     payload = {

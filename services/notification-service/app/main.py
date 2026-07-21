@@ -11,6 +11,7 @@ from app.db.models import Notification  # noqa: F401
 from app.db.session import engine
 from app.kafka.consumer import NoopNotificationConsumer, NotificationConsumer
 from app.kafka.producer import KafkaPublisher, NoopKafkaPublisher
+from app.metrics import register_domain_metrics
 
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.service_name, version="0.1.0", lifespan=lifespan)
     install_request_observability(app, settings.service_name, settings.environment)
+    register_domain_metrics(app)
 
     app.add_middleware(
         CORSMiddleware,

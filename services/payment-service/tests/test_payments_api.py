@@ -24,6 +24,23 @@ def test_health(client):
     assert response.headers["x-request-id"]
 
 
+def test_metrics_expose_payment_domain_counts(client, auth_headers):
+    user_id = str(uuid.uuid4())
+    response = client.post(
+        "/payments",
+        json=_payment_payload(user_id),
+        headers=auth_headers(user_id, "customer"),
+    )
+    assert response.status_code == 201
+
+    metrics_response = client.get("/metrics")
+
+    assert metrics_response.status_code == 200
+    assert "delivery_payments_total 1.0" in metrics_response.text
+    assert "delivery_payments_pending_total 1.0" in metrics_response.text
+    assert 'delivery_payments_by_status{status="pending"} 1.0' in metrics_response.text
+
+
 def test_create_get_and_list_payment(client, auth_headers):
     user_id = str(uuid.uuid4())
     payload = _payment_payload(user_id)

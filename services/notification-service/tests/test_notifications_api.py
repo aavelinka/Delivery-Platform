@@ -10,6 +10,29 @@ def test_health(client):
     assert response.headers["x-request-id"]
 
 
+def test_metrics_expose_notification_domain_counts(client, auth_headers):
+    user_id = str(uuid.uuid4())
+    response = client.post(
+        "/notifications",
+        json={
+            "user_id": user_id,
+            "channel": "in_app",
+            "title": "Order created",
+            "message": "Order was created.",
+        },
+        headers=auth_headers(role="admin"),
+    )
+    assert response.status_code == 201
+
+    metrics_response = client.get("/metrics")
+
+    assert metrics_response.status_code == 200
+    assert "delivery_notifications_total 1.0" in metrics_response.text
+    assert "delivery_notifications_unread_total 1.0" in metrics_response.text
+    assert 'delivery_notifications_by_status{status="created"} 1.0' in metrics_response.text
+    assert 'delivery_notifications_by_channel{channel="in_app"} 1.0' in metrics_response.text
+
+
 def test_create_get_list_and_read_notification(client, auth_headers):
     user_id = str(uuid.uuid4())
     admin_headers = auth_headers(role="admin")

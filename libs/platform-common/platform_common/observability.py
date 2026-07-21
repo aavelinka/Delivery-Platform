@@ -2,10 +2,13 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
+from decimal import Decimal
 
 from fastapi import FastAPI, Request, Response
 from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
+from prometheus_client.core import GaugeMetricFamily
 from platform_common.telemetry import (
     configure_telemetry,
     enrich_current_span,
@@ -14,6 +17,19 @@ from platform_common.telemetry import (
 from platform_common.tracing import TRACEPARENT_HEADER, TraceContext, start_trace
 
 _STRUCTURED_HANDLER_NAME = "delivery-platform-structured-handler"
+_METRICS_LOGGER_NAME = "delivery.metrics"
+
+SummaryScalar = bool | int | float | Decimal
+SummaryMetricValue = SummaryScalar | Mapping[str, SummaryScalar]
+SummaryLoader = Callable[[], Mapping[str, SummaryMetricValue]]
+
+
+@dataclass(frozen=True)
+class SummaryMetricDefinition:
+    name: str
+    description: str
+    summary_key: str
+    label_name: str | None = None
 
 
 def configure_logging() -> None:
@@ -115,6 +131,30 @@ def install_request_observability(
                 )
 
 
+def register_metrics_collector(app: FastAPI, collector: object) -> None:
+    registry = getattr(app.state, "metrics_registry", None)
+    if not isinstance(registry, CollectorRegistry):
+        raise RuntimeError("Metrics registry is not configured on the FastAPI app")
+    registry.register(collector)
+
+
+def register_summary_metrics(
+    app: FastAPI,
+    *,
+    load_summary: SummaryLoader,
+    metrics: Sequence[SummaryMetricDefinition],
+    logger_name: str = _METRICS_LOGGER_NAME,
+) -> None:
+    register_metrics_collector(
+        app,
+        _SummaryMetricsCollector(
+            load_summary=load_summary,
+            metrics=metrics,
+            logger=logging.getLogger(logger_name),
+        ),
+    )
+
+
 def get_request_id(request: Request) -> str:
     request_id = getattr(request.state, "request_id", None)
     if isinstance(request_id, str) and request_id:
@@ -177,3 +217,67 @@ def _request_log_payload(
     if request.client is not None:
         payload["client_ip"] = request.client.host
     return payload
+
+
+class _SummaryMetricsCollector:
+    def __init__(
+        self,
+        *,
+        load_summary: SummaryLoader,
+        metrics: Sequence[SummaryMetricDefinition],
+        logger: logging.Logger,
+    ) -> None:
+        self._load_summary = load_summary
+        self._metrics = tuple(metrics)
+        self._logger = logger
+
+    def collect(self) -> list[GaugeMetricFamily]:
+        try:
+            summary = dict(self._load_summary())
+        except Exception:
+            self._logger.exception("Failed to load summary metrics")
+            return []
+
+        metric_families: list[GaugeMetricFamily] = []
+        for metric in self._metrics:
+            family = self._metric_family(metric, summary)
+            if family is not None:
+                metric_families.append(family)
+        return metric_families
+
+    def _metric_family(
+        self,
+        metric: SummaryMetricDefinition,
+        summary: Mapping[str, SummaryMetricValue],
+    ) -> GaugeMetricFamily | None:
+        raw_value = summary.get(metric.summary_key)
+        if metric.label_name is None:
+            family = GaugeMetricFamily(metric.name, metric.description)
+            family.add_metric([], _metric_value(raw_value))
+            return family
+
+        family = GaugeMetricFamily(metric.name, metric.description, labels=[metric.label_name])
+        if raw_value is None:
+            return family
+        if not isinstance(raw_value, Mapping):
+            self._logger.warning(
+                "Summary metric %s expected a mapping for key %s, got %s",
+                metric.name,
+                metric.summary_key,
+                type(raw_value).__name__,
+            )
+            return family
+
+        for label_value, item_value in sorted(raw_value.items(), key=lambda item: str(item[0])):
+            family.add_metric([str(label_value)], _metric_value(item_value))
+        return family
+
+
+def _metric_value(value: object) -> float:
+    if value is None:
+        return 0.0
+    if isinstance(value, bool):
+        return 1.0 if value else 0.0
+    if isinstance(value, (int, float, Decimal)):
+        return float(value)
+    raise TypeError(f"Unsupported summary metric value type: {type(value).__name__}")

@@ -15,12 +15,25 @@ def test_metrics(client):
     health_response = client.get("/health")
     assert health_response.status_code == 200
 
+    register_response = client.post(
+        "/auth/register",
+        json={
+            "email": "metrics@example.com",
+            "password": "strong-password",
+            "full_name": "Metrics User",
+        },
+    )
+    assert register_response.status_code == 201
+
     response = client.get("/metrics")
 
     assert response.status_code == 200
     assert "http_requests_total" in response.text
     assert 'service="auth-service"' in response.text
     assert 'path="/health"' in response.text
+    assert "delivery_auth_users_total" in response.text
+    assert "delivery_auth_users_active_total" in response.text
+    assert 'delivery_auth_users_by_role{role="customer"} 1.0' in response.text
 
 
 def test_register_login_me_refresh_and_logout(client):

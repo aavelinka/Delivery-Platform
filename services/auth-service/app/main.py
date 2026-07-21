@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.models import RefreshToken, User  # noqa: F401
 from app.db.session import SessionLocal, engine
+from app.metrics import register_domain_metrics
 from app.services.auth_service import AuthService
 
 
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.service_name, version="0.1.0", lifespan=lifespan)
     install_request_observability(app, settings.service_name, settings.environment)
+    register_domain_metrics(app)
 
     app.add_middleware(
         CORSMiddleware,

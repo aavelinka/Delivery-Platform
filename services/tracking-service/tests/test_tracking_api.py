@@ -13,6 +13,36 @@ def test_health(client):
     assert response.headers["x-request-id"]
 
 
+def test_metrics_expose_tracking_domain_counts(client, auth_headers, db_session):
+    courier_user_id = str(uuid.uuid4())
+    user_id = str(uuid.uuid4())
+    order_id = str(uuid.uuid4())
+    TrackingService(db_session).upsert_tracked_order(
+        order_id=uuid.UUID(order_id),
+        user_id=uuid.UUID(user_id),
+        courier_user_id=uuid.UUID(courier_user_id),
+    )
+
+    response = client.post(
+        "/tracking/locations",
+        json={
+            "courier_user_id": courier_user_id,
+            "order_id": order_id,
+            "latitude": 53.9,
+            "longitude": 27.5667,
+        },
+        headers=auth_headers(courier_user_id, "courier"),
+    )
+    assert response.status_code == 201
+
+    metrics_response = client.get("/metrics")
+
+    assert metrics_response.status_code == 200
+    assert "delivery_tracking_orders_total 1.0" in metrics_response.text
+    assert "delivery_tracking_orders_with_courier_total 1.0" in metrics_response.text
+    assert "delivery_tracking_location_updates_total 1.0" in metrics_response.text
+
+
 def test_create_and_read_locations(client, auth_headers, db_session):
     courier_user_id = str(uuid.uuid4())
     user_id = str(uuid.uuid4())

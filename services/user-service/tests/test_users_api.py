@@ -8,6 +8,39 @@ def test_health(client):
     assert response.headers["x-request-id"]
 
 
+def test_metrics_expose_user_domain_counts(client, auth_headers):
+    user_id = str(uuid.uuid4())
+    headers = auth_headers(user_id)
+
+    profile_response = client.patch(
+        f"/users/{user_id}",
+        json={"full_name": "Customer One"},
+        headers=headers,
+    )
+    assert profile_response.status_code == 200
+
+    address_response = client.post(
+        f"/users/{user_id}/addresses",
+        json={
+            "label": "Home",
+            "city": "Minsk",
+            "street": "Main street",
+            "building": "12",
+            "is_default": True,
+        },
+        headers=headers,
+    )
+    assert address_response.status_code == 201
+
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert "delivery_user_profiles_total 1.0" in response.text
+    assert "delivery_user_addresses_total 1.0" in response.text
+    assert "delivery_user_profiles_with_addresses_total 1.0" in response.text
+    assert "delivery_user_default_addresses_total 1.0" in response.text
+
+
 def test_profile_and_addresses_flow(client, auth_headers):
     user_id = str(uuid.uuid4())
     headers = auth_headers(user_id)
