@@ -70,7 +70,7 @@ test-payment-service:
 	(cd services/payment-service && ../../$(PYTHON) -m pytest -q)
 
 test-platform-common:
-	($(PYTHON) -m pytest -q tests/platform_common/test_tracing.py)
+	($(PYTHON) -m pytest -q tests/platform_common)
 
 test-kafka-contracts:
 	($(PYTHON) -m pytest -q tests/contracts/test_kafka_contracts.py)

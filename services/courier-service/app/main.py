@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     publisher = KafkaPublisher(settings) if settings.kafka_enabled else NoopKafkaPublisher()
     consumer = (
-        OrderEventsConsumer(settings)
+        OrderEventsConsumer(settings, publisher if settings.kafka_enabled else None)
         if settings.kafka_enabled and isinstance(publisher, KafkaPublisher)
         else NoopOrderEventsConsumer()
     )

@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from aiokafka import AIOKafkaConsumer
+from platform_common.consumer_reliability import DeadLetterPublisher, process_message_with_retries
 from platform_common.tracing import start_trace, traceparent_from_event
 
 from app.core.config import Settings
@@ -14,8 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class OrderEventsConsumer:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        dlq_publisher: DeadLetterPublisher | None = None,
+    ) -> None:
         self.settings = settings
+        self._dlq_publisher = dlq_publisher
         self._consumer: AIOKafkaConsumer | None = None
         self._task: asyncio.Task[None] | None = None
         self._stopped = asyncio.Event()
@@ -56,13 +62,30 @@ class OrderEventsConsumer:
         while not self._stopped.is_set():
             try:
                 message = await self._consumer.getone()
-                await self._handle_event(message.value, topic=message.topic)
-                await self._consumer.commit()
+                should_commit = await self._process_message(message)
+                if should_commit:
+                    await self._consumer.commit()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 logger.exception("Failed to handle order event: %s", exc)
                 await asyncio.sleep(1)
+
+    async def _process_message(self, message: Any) -> bool:
+        return await process_message_with_retries(
+            event=message.value,
+            source_service=self.settings.service_name,
+            consumer_group=self.settings.kafka_group_id,
+            source_topic=message.topic,
+            source_partition=getattr(message, "partition", None),
+            source_offset=getattr(message, "offset", None),
+            handler=lambda: self._handle_event(message.value, topic=message.topic),
+            logger=logger,
+            max_retries=self.settings.kafka_consumer_max_retries,
+            retry_backoff_seconds=self.settings.kafka_consumer_retry_backoff_seconds,
+            dlq_topic=self.settings.kafka_consumer_dlq_topic,
+            dlq_publisher=self._dlq_publisher,
+        )
 
     async def _handle_event(self, event: dict[str, Any], topic: str | None = None) -> None:
         event_type = str(event.get("event_type") or "unknown")

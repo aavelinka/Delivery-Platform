@@ -10,22 +10,27 @@ from app.db.base import Base
 from app.db.models import Notification  # noqa: F401
 from app.db.session import engine
 from app.kafka.consumer import NoopNotificationConsumer, NotificationConsumer
+from app.kafka.producer import KafkaPublisher, NoopKafkaPublisher
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    publisher = KafkaPublisher(settings) if settings.kafka_enabled else NoopKafkaPublisher()
     consumer = (
-        NotificationConsumer(settings)
+        NotificationConsumer(settings, publisher if settings.kafka_enabled else None)
         if settings.kafka_enabled
         else NoopNotificationConsumer()
     )
+    app.state.kafka_publisher = publisher
     app.state.notification_consumer = consumer
+    await publisher.start()
     await consumer.start()
     try:
         yield
     finally:
         await consumer.stop()
+        await publisher.stop()
 
 
 def create_app() -> FastAPI:

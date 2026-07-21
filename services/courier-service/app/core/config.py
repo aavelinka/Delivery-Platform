@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     kafka_group_id: str = "courier-service"
     kafka_couriers_topic: str = "couriers.events"
     kafka_orders_topic: str = "orders.events"
+    kafka_consumer_max_retries: int = 3
+    kafka_consumer_retry_backoff_seconds: float = 1.0
+    kafka_consumer_dlq_topic: str = "courier-service.dlq"
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"

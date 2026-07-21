@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     consumer: CourierEventsConsumer | NoopCourierEventsConsumer
     if settings.kafka_enabled:
         publisher = KafkaPublisher(settings)
-        consumer = CourierEventsConsumer(settings)
+        consumer = CourierEventsConsumer(settings, publisher)
         outbox_publisher = OutboxPublisher(
             session_factory=SessionLocal,
             event_model=OutboxEvent,

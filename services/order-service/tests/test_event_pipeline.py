@@ -2,6 +2,7 @@ import asyncio
 import uuid
 from decimal import Decimal
 
+import pytest
 from platform_common.outbox import OutboxPublisher
 from platform_common.tracing import start_trace
 from sqlalchemy import select
@@ -32,6 +33,14 @@ class FlakyPublisher:
         self.calls += 1
         if self.calls == 1:
             raise RuntimeError("temporary failure")
+
+
+class FakeKafkaMessage:
+    def __init__(self, *, topic: str, value: dict[str, object]) -> None:
+        self.topic = topic
+        self.value = value
+        self.partition = 0
+        self.offset = 1
 
 
 def _create_order(db_session) -> Order:
@@ -193,3 +202,45 @@ def test_courier_consumer_applies_assignment_events(db_session):
             assert trace["trace_id"] == upstream_trace.trace_id
             assert trace["parent_span_id"] == upstream_trace.span_id
             assert trace["span_id"] != upstream_trace.span_id
+
+
+def test_courier_consumer_dead_letters_poison_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    settings = get_settings()
+    old_max_retries = settings.kafka_consumer_max_retries
+    old_retry_backoff = settings.kafka_consumer_retry_backoff_seconds
+    publisher = RecordingPublisher()
+    consumer = CourierEventsConsumer(settings, publisher)
+    message = FakeKafkaMessage(
+        topic=settings.kafka_couriers_topic,
+        value={
+            "event_id": str(uuid.uuid4()),
+            "event_type": "courier_assigned",
+            "aggregate_type": "assignment",
+            "aggregate_id": str(uuid.uuid4()),
+            "payload": {"order_id": str(uuid.uuid4())},
+            "metadata": {},
+        },
+    )
+
+    async def always_fail(event: dict[str, object], topic: str | None = None) -> None:
+        del event, topic
+        raise RuntimeError("broken assignment event")
+
+    monkeypatch.setattr(consumer, "_handle_event", always_fail)
+    settings.kafka_consumer_max_retries = 0
+    settings.kafka_consumer_retry_backoff_seconds = 0
+
+    try:
+        should_commit = asyncio.run(consumer._process_message(message))
+    finally:
+        settings.kafka_consumer_max_retries = old_max_retries
+        settings.kafka_consumer_retry_backoff_seconds = old_retry_backoff
+
+    assert should_commit is True
+    assert len(publisher.messages) == 1
+    topic, dlq_event = publisher.messages[0]
+    assert topic == settings.kafka_consumer_dlq_topic
+    assert dlq_event["event_type"] == "dead_lettered"
+    assert dlq_event["payload"]["source_topic"] == settings.kafka_couriers_topic
+    assert dlq_event["payload"]["failed_attempts"] == 1
+    assert dlq_event["payload"]["original_event"]["event_id"] == message.value["event_id"]

@@ -220,11 +220,16 @@ def _trace_exporter_timeout() -> float:
 
 def _import_telemetry_modules() -> tuple[Any, Any, Any, Any, Any] | None:
     try:
-        from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+        from opentelemetry import trace  # type: ignore[import-not-found]
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (  # type: ignore[import-not-found]
+            OTLPSpanExporter,
+        )
+        from opentelemetry.sdk.resources import Resource  # type: ignore[import-not-found]
+        from opentelemetry.sdk.trace import TracerProvider  # type: ignore[import-not-found]
+        from opentelemetry.sdk.trace.export import (  # type: ignore[import-not-found]
+            BatchSpanProcessor,
+            ConsoleSpanExporter,
+        )
     except ImportError as exc:
         logger.warning(
             "OpenTelemetry requested but SDK dependencies are missing: %s",
@@ -247,9 +252,11 @@ def _import_telemetry_modules() -> tuple[Any, Any, Any, Any, Any] | None:
 
 def _import_telemetry_runtime() -> tuple[Any, Any, Any] | None:
     try:
-        from opentelemetry import trace
-        from opentelemetry.trace import SpanKind
-        from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+        from opentelemetry import trace  # type: ignore[import-not-found]
+        from opentelemetry.trace import SpanKind  # type: ignore[import-not-found]
+        from opentelemetry.trace.propagation.tracecontext import (  # type: ignore[import-not-found]
+            TraceContextTextMapPropagator,
+        )
     except ImportError:
         return None
     return trace, SpanKind, TraceContextTextMapPropagator
@@ -257,7 +264,7 @@ def _import_telemetry_runtime() -> tuple[Any, Any, Any] | None:
 
 def _import_trace_module() -> Any | None:
     try:
-        from opentelemetry import trace
+        from opentelemetry import trace  # type: ignore[import-not-found]
     except ImportError:
         return None
     return trace
@@ -265,7 +272,7 @@ def _import_trace_module() -> Any | None:
 
 def _import_status_module() -> tuple[Any, Any] | None:
     try:
-        from opentelemetry.trace import Status, StatusCode
+        from opentelemetry.trace import Status, StatusCode  # type: ignore[import-not-found]
     except ImportError:
         return None
     return Status, StatusCode

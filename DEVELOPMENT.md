@@ -44,6 +44,16 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318/v1/traces
 If `OTEL_ENABLED=true` is set without an OTLP endpoint, services fall back to
 the console span exporter.
 
+Kafka consumers in `order-service`, `courier-service`, `tracking-service`, and
+`notification-service` also support bounded retries and service-level DLQ topics
+through:
+
+```bash
+<SERVICE>_KAFKA_CONSUMER_MAX_RETRIES
+<SERVICE>_KAFKA_CONSUMER_RETRY_BACKOFF_SECONDS
+<SERVICE>_KAFKA_CONSUMER_DLQ_TOPIC
+```
+
 ### Single service
 
 Each implemented service has its own `docker-compose.yml` under `services/<name>/`.
@@ -109,6 +119,12 @@ Core happy-path flow:
 4. `tracking-service` consumes order events and binds order ownership and courier access.
 5. `notification-service` consumes order and courier events and creates in-app notifications.
 6. `payment-service` publishes payment lifecycle events through its own outbox.
+
+Failure-path rule:
+
+- a poison Kafka message is retried a bounded number of times;
+- if retries are exhausted and DLQ publish succeeds, the original offset is committed;
+- if DLQ publish fails, the original offset is not committed, so the message is not lost.
 
 When changing event payloads, update:
 
